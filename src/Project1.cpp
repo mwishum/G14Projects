@@ -3,7 +3,7 @@
 // Author: Group 14
 // Mason Wishum (mlw0032), Harrison Kinchler (hdk0002),
 // Michael Pearce (mtp0013)
-// March 9, 2016What do you think?
+// March 9, 2016
 //============================================================================
 
 #include "project.h"
