@@ -16,10 +16,14 @@ int main(int argc, char *argv[]) {
 	struct ifaddrs * ifAddrStruct = NULL;
 	struct ifaddrs * ifa = NULL;
 	void * tmpAddrPtr = NULL;
+	bool exit = true, server_needs_ending = false;
+	string in;
+	locale loc;
 
+	//get list of adapters and addresses
 	getifaddrs(&ifAddrStruct);
 	cout << "Pick an adapter to use:" << endl;
-	vector<string> addresses();
+	vector<string> addresses;
 	int index = 0;
 	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) {
@@ -31,18 +35,23 @@ int main(int argc, char *argv[]) {
 			char addressBuffer[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
 			printf(" [%d] %s (%s)\n", index++, ifa->ifa_name, addressBuffer);
+			addresses.push_back(addressBuffer);
+			index++;
 		}
 	}
 	if (ifAddrStruct != NULL)
 		freeifaddrs(ifAddrStruct);
 
-	DataPacket p(1, 2, "localhost", "CONTENT");
+	cout << "Adapter #:";
+	cin >> in;
+	string this_address = addresses[strtol(in.c_str(), NULL, 10)];
+	printf("This address is %s.\n\n",this_address.c_str());
+
+	//Testing datagram things
+	DataPacket p(1, 2, this_address, "CONTENT");
 	p.Finalize();
 
 	//Print Menu
-	bool exit = true, server_needs_ending = false;
-	string in;
-	locale loc;
 	cout << "========== Menu ==========" << endl;
 	cout << "[e]xit, [c]lient, [s]erver" << endl;
 	while (exit) {
@@ -69,22 +78,24 @@ int main(int argc, char *argv[]) {
 			/*
 			 * SERVER
 			 */
+			//make a new socket for Datagrams over the internet
 			socket_id = socket(AF_INET, SOCK_DGRAM, 0);
 			if (socket_id < 0) {
 				perror("ERROR opening socket");
 				break;
 			}
+			//put address in memory
 			memset(&server_address, NOTHING, sizeof(server_address));
 
 			server_address.sin_family = AF_INET;
-			server_address.sin_addr.s_addr = inet_addr("127.0.0.1"); //TODO: CHANGE to inet_aton!
+			server_address.sin_addr.s_addr = inet_addr(this_address.c_str()); //TODO: CHANGE to inet_aton!
 			if (server_address.sin_addr.s_addr == INADDR_NONE) {
 				perror("Invlaid address");
 				break;
 			}
 			server_address.sin_port = htons(PORT_SERVER_DATA);
 			server_addr_len = sizeof(server_address);
-
+			//bind socket with addresses
 			n = bind(socket_id, (struct sockaddr *) &server_address,
 					server_addr_len);
 			if (n < 0) {
@@ -180,3 +191,4 @@ int main(int argc, char *argv[]) {
 	}
 	return 0;
 }
+

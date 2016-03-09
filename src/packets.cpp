@@ -13,7 +13,7 @@ Packet::Packet(int from_port, int to_port, string to_ipadr) :
 }
 
 Packet::Packet(int from_port, int to_port, string to_ipadr, const char* data) :
-		content(data), content_length(-1), to_ip_address(to_ipadr), from_port(
+		content(data), content_length(strlen(data)), to_ip_address(to_ipadr), from_port(
 				from_port), to_port(to_port), packet_size(0), checksum(0), type_string(
 				"XXX") {
 	memset(packet_buffer, NOTHING, PACKET_SIZE);
@@ -45,7 +45,7 @@ uint16_t Packet::Checksum() {
 
 	sum = (sum >> 16) + (sum & 0xffff);
 	sum = sum + (sum >> 16);
-	sum = (short) ~sum;
+	sum = ~sum;
 	return sum;
 }
 
@@ -54,8 +54,10 @@ void Packet::Finalize() {
 	uint16_t *checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
 	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
 	strcpy(packet_type, type_string);
-	*checksum = 50000;
+	*checksum = 0;
 	strcpy(data, content);
+	packet_size = sizeof(char)*3 + sizeof(uint16_t) + content_length;
+	*checksum = Checksum();
 }
 
 void Packet::Send() {
@@ -69,25 +71,21 @@ void Packet::_send_to_socket() {
 DataPacket::DataPacket(int from_port, int to_port, string to_ipadr,
 		const char* data) :
 		Packet(from_port, to_port, to_ipadr, data) {
-	memset(packet_buffer, NOTHING, PACKET_SIZE);
 	type_string = DATA;
 }
 
 AckPacket::AckPacket() :
 		Packet(0, 0, "") {
-	memset(packet_buffer, NOTHING, PACKET_SIZE);
 	type_string = ACK;
 }
 
 NakPacket::NakPacket() :
 		Packet(0, 0, "") {
-	memset(packet_buffer, NOTHING, PACKET_SIZE);
 	type_string = NO_ACK;
 }
 
 RequestPacket::RequestPacket(ReqType type) :
 		Packet(0, 0, "") {
-	memset(packet_buffer, NOTHING, PACKET_SIZE);
 	switch (type) {
 	case ReqType::Fail:
 		type_string = GET_FAIL;
