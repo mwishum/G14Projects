@@ -8,6 +8,10 @@
 
 #include "packets.h"
 
+void printBinary(int num) {
+	cout << bitset<16>(num) << " " << num << endl;
+}
+
 Packet::Packet(int from_port, int to_port, string to_ipadr) :
 		Packet(from_port, to_port, to_ipadr, NULL) {
 }
@@ -30,11 +34,12 @@ DecodeResult Packet::DecodePacket(void* buff, size_t buffsize, Packet* out) {
 
 uint16_t Packet::Checksum() {
 	register uint16_t sum;
-	unsigned short oddbyte;
-
+	uint8_t oddbyte;
+	uint16_t *pointer = (uint16_t*) packet_buffer;
 	sum = 0;
 	while (packet_size > 1) {
-		sum += (*packet_buffer)++;
+		sum += *pointer;
+		pointer++;
 		packet_size -= 2;
 	}
 	if (packet_size == 1) {
@@ -45,19 +50,36 @@ uint16_t Packet::Checksum() {
 
 	sum = (sum >> 16) + (sum & 0xffff);
 	sum = sum + (sum >> 16);
-	sum = ~sum;
-	return sum;
+	return ~sum;
 }
 
 void Packet::Finalize() {
+	//Sending Packet from server
 	char *packet_type = (char *) packet_buffer;
 	uint16_t *checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
 	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
 	strcpy(packet_type, type_string);
 	*checksum = 0;
 	strcpy(data, content);
-	packet_size = sizeof(char)*3 + sizeof(uint16_t) + content_length;
+	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
 	*checksum = Checksum();
+
+	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+
+	//Received packed from server
+	//cout << "packet checksum:" << endl;
+	printBinary(*checksum);
+	uint16_t secondsum = Checksum();
+	//cout << "Re-checksumed (with existing csum):" << endl;
+	printBinary(secondsum);
+	*checksum = 0;
+	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+	uint16_t zerosum = Checksum();
+	//cout << "Re-checksumed (after zeroing csum):" << endl;
+	printBinary(zerosum);
+	uint16_t added = zerosum + ~secondsum;
+	//cout << "zeroed csum + existing csum:" << endl;
+	printBinary(added);
 }
 
 void Packet::Send() {

@@ -16,13 +16,14 @@
 #define GET_INFO 		"GET"
 #define GET_FAIL 		"NOG"
 #define GET_SUCCESS		"SUG"
-#define GET_DONE_SUCCESS "SCP"
 #define DATA			"DAT"
 #define RTT_TEST_CLIENT	"RTC"
 #define RTT_TEST_SERVER	"RTS"
 #define GREETING		"GRT"
 
 using namespace std;
+
+void printBinary(int num);
 
 enum class DecodeResult {
 	Success, FatalError, ChecksumDoesNotMatch

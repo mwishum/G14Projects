@@ -25,6 +25,7 @@
 #include <string.h>
 #include <locale>
 #include <vector>
+#include <bitset>
 
 #define PORT_CLIENT 10062
 #define PORT_SERVER_LINK 10063

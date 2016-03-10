@@ -12,6 +12,11 @@
 using namespace std;
 
 int main(int argc, char *argv[]) {
+	//Testing datagram things
+	DataPacket p(1, 2, "localhost", "\u028contentlajdflsajfljsdfjeskj");
+	p.Finalize();
+
+	///////////////////////////////////////////////
 	cout << "Welcome to the socket test!" << endl;
 	struct ifaddrs * ifAddrStruct = NULL;
 	struct ifaddrs * ifa = NULL;
@@ -23,7 +28,7 @@ int main(int argc, char *argv[]) {
 	//get list of adapters and addresses
 	getifaddrs(&ifAddrStruct);
 	cout << "Pick an adapter to use:" << endl;
-	vector<string> addresses;
+	vector < string > addresses;
 	int index = 0;
 	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) {
@@ -36,7 +41,6 @@ int main(int argc, char *argv[]) {
 			inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
 			printf(" [%d] %s (%s)\n", index++, ifa->ifa_name, addressBuffer);
 			addresses.push_back(addressBuffer);
-			index++;
 		}
 	}
 	if (ifAddrStruct != NULL)
@@ -45,11 +49,6 @@ int main(int argc, char *argv[]) {
 	cout << "Adapter #:";
 	cin >> in;
 	string this_address = addresses[strtol(in.c_str(), NULL, 10)];
-	printf("This address is %s.\n\n",this_address.c_str());
-
-	//Testing datagram things
-	DataPacket p(1, 2, this_address, "CONTENT");
-	p.Finalize();
 
 	//Print Menu
 	cout << "========== Menu ==========" << endl;
@@ -78,7 +77,7 @@ int main(int argc, char *argv[]) {
 			/*
 			 * SERVER
 			 */
-			//make a new socket for Datagrams over the internet
+			//make a new socket for Datagrams over the Internet
 			socket_id = socket(AF_INET, SOCK_DGRAM, 0);
 			if (socket_id < 0) {
 				perror("ERROR opening socket");
@@ -86,8 +85,9 @@ int main(int argc, char *argv[]) {
 			}
 			//put address in memory
 			memset(&server_address, NOTHING, sizeof(server_address));
-
+			//set type, address, and port of this server.
 			server_address.sin_family = AF_INET;
+			cout << "Server on " << this_address << endl;
 			server_address.sin_addr.s_addr = inet_addr(this_address.c_str()); //TODO: CHANGE to inet_aton!
 			if (server_address.sin_addr.s_addr == INADDR_NONE) {
 				perror("Invlaid address");
@@ -96,21 +96,19 @@ int main(int argc, char *argv[]) {
 			server_address.sin_port = htons(PORT_SERVER_DATA);
 			server_addr_len = sizeof(server_address);
 			//bind socket with addresses
-			n = bind(socket_id, (struct sockaddr *) &server_address,
-					server_addr_len);
+			n = bind(socket_id, (sockaddr*) &server_address, server_addr_len);
 			if (n < 0) {
 				perror("ERROR on binding");
 				break;
 			}
 
-			cout << "Waiting on connection.\n(send CTRL+Y on client to end)"
-					<< endl;
+			cout << "Waiting on connection.\n(send CTRL+Y on client to end)" << endl;
 			bool exiting = false;
 			while (!exiting) {
 				memset(buffer, NOTHING, 256);
 				client_addr_len = sizeof(client_address);
-				n = recvfrom(socket_id, buffer, sizeof(buffer), 0,
-						(struct sockaddr *) &client_address, &client_addr_len);
+				n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address,
+						&client_addr_len);
 				if (n < 0) {
 					perror("Error recvfrom");
 					break;
@@ -123,8 +121,8 @@ int main(int argc, char *argv[]) {
 				}
 				string message = "echo:";
 				message.copy(buffer, message.length(), 0);
-				n = sendto(socket_id, buffer, sizeof(buffer), 0,
-						(struct sockaddr *) &client_address, client_addr_len);
+				n = sendto(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address,
+						client_addr_len);
 				if (n < 0) {
 					perror("Error sendto");
 					break;
@@ -144,7 +142,11 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 				printf("Socket opened\n");
-				server = gethostbyname("localhost");
+				cout << "Enter host to connect to: ";
+				string host;
+				getline(cin, host);
+				getline(cin, host);
+				server = gethostbyname(host.c_str());
 				if (server == NULL) {
 					fprintf(stderr, "ERROR, no such host\n");
 					break;
@@ -152,19 +154,21 @@ int main(int argc, char *argv[]) {
 				printf("Server name => %s\n", server->h_name);
 				memset(&server_address, NOTHING, sizeof(server_address));
 				server_address.sin_family = AF_INET;
-
-				memcpy(server->h_addr, &server_address.sin_addr.s_addr, server->h_length);
+				server_address.sin_addr.s_addr = inet_addr(host.c_str()); //TODO: CHANGE to inet_aton!
+				if (server_address.sin_addr.s_addr == INADDR_NONE) {
+					perror("Invlaid address");
+					break;
+				}
 				server_address.sin_port = htons(PORT_SERVER_DATA);
 
-				if (connect(socket_id, (struct sockaddr *) &server_address,
-						sizeof(server_address)) < 0) {
+				if (connect(socket_id, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
 					perror("ERROR connecting");
 					break;
 				}
 
 				memset(buffer, NOTHING, 256);
 				string inbuff = "", trash;
-				getline(cin, trash);
+
 				cout << "Enter message: ";
 				getline(cin, inbuff);
 				inbuff.copy(buffer, inbuff.length());
@@ -182,8 +186,8 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 				printf("%s\n", buffer);
-			} catch (const exception & e) {
-				cout << e.what() << endl << "program exited with error" << endl;
+			} catch (...) {
+				cout << "program exited with error" << endl;
 				close(socket_id);
 				return -1;
 			}
