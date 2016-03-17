@@ -18,19 +18,24 @@ enum class StatusResult {
 
 class Sockets {
 	static Sockets *manager;
+	int socket_id;
+	struct sockaddr_in client_addr;
+
 	bool socket_ready;
 	bool initialized;
 public:
 	Sockets();
+	virtual ~Sockets();
 	StatusResult Open(string addresses, int port);
+	void Close();
+	StatusResult Receive(void *buffer, size_t* bufflen);
+	StatusResult Send(void *buffer, size_t* bufflen);
 	static Sockets* instance() {
 		if (manager == NULL) {
 			manager = new Sockets();
 		}
 		return manager;
 	}
-	StatusResult Send(void *buff, size_t length);
-	virtual ~Sockets();
 };
 
 #endif /* SOCKETS_H_ */

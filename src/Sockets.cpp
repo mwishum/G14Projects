@@ -12,7 +12,23 @@ Sockets::Sockets() {
 
 }
 
-StatusResult Sockets::Send(void* buff, size_t length) {
+StatusResult Sockets::Open(string addresses, int port) {
+	socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+	if (socket_id < 0) {
+		return StatusResult::CouldNotOpen;
+	}
+
+	return StatusResult::NotInitialized;
+}
+
+void Sockets::Close() {
+}
+
+StatusResult Sockets::Receive(void* buffer, size_t* bufflen) {
+	return StatusResult::NotInitialized;
+}
+
+StatusResult Sockets::Send(void* buff, size_t* length) {
 	return StatusResult::NotInitialized;
 }
 

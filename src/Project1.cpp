@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 	//get list of adapters and addresses
 	getifaddrs(&ifAddrStruct);
 	cout << "Pick an adapter to use:" << endl;
-	vector < string > addresses;
+	vector<string> addresses;
 	int index = 0;
 	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) {
@@ -102,13 +102,14 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
-			cout << "Waiting on connection.\n(send CTRL+Y on client to end)" << endl;
+			cout << "Waiting on connection.\n(send CTRL+Y on client to end)"
+					<< endl;
 			bool exiting = false;
 			while (!exiting) {
 				memset(buffer, NOTHING, 256);
 				client_addr_len = sizeof(client_address);
-				n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address,
-						&client_addr_len);
+				n = recvfrom(socket_id, buffer, sizeof(buffer), 0,
+						(sockaddr *) &client_address, &client_addr_len);
 				if (n < 0) {
 					perror("Error recvfrom");
 					break;
@@ -121,8 +122,8 @@ int main(int argc, char *argv[]) {
 				}
 				string message = "echo:";
 				message.copy(buffer, message.length(), 0);
-				n = sendto(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address,
-						client_addr_len);
+				n = sendto(socket_id, buffer, sizeof(buffer), 0,
+						(sockaddr *) &client_address, client_addr_len);
 				if (n < 0) {
 					perror("Error sendto");
 					break;
@@ -161,7 +162,8 @@ int main(int argc, char *argv[]) {
 				}
 				server_address.sin_port = htons(PORT_SERVER_DATA);
 
-				if (connect(socket_id, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
+				if (connect(socket_id, (sockaddr *) &server_address,
+						sizeof(server_address)) < 0) {
 					perror("ERROR connecting");
 					break;
 				}
@@ -172,7 +174,7 @@ int main(int argc, char *argv[]) {
 				cout << "Enter message: ";
 				getline(cin, inbuff);
 				inbuff.copy(buffer, inbuff.length());
-				n = write(socket_id, buffer, inbuff.length());
+				n = send(socket_id, buffer, inbuff.length(), 0);
 				cout << "=|" << buffer << "|=" << endl;
 				if (n < 0) {
 					perror("ERROR writing to socket");
@@ -180,7 +182,7 @@ int main(int argc, char *argv[]) {
 				}
 				memset(buffer, NOTHING, 256);
 
-				n = read(socket_id, buffer, 255);
+				n = recv(socket_id, buffer, 255, 0);
 				if (n < 0) {
 					perror("ERROR reading from socket");
 					break;
