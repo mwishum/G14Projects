@@ -23,59 +23,58 @@
 
 using namespace std;
 
-void printBinary(int num);
-
-enum class DecodeResult {
-	Success, FatalError, ChecksumDoesNotMatch
-};
-
 enum class ReqType {
-	Info, Fail, Success
+	Info, Fail, Success, RTTClient, RTTServer
 };
 
 class Packet {
 public:
-	Packet(int from_port, int to_port, string to_ipadr);
+	Packet();
 	virtual ~Packet();
-	static DecodeResult DecodePacket(void* buff, size_t buffsize, Packet* out);
+	virtual StatusResult DecodePacket();
 	virtual uint16_t Checksum() final;
 	virtual void Finalize();
-	virtual void Send();
-	virtual void _send_to_socket();
+	virtual StatusResult Send();
+	virtual StatusResult Receive();
+	virtual StatusResult _send_to_socket();
 	string GetContent() {
 		return content;
 	}
-
 protected:
-	Packet(int from_port, int to_port, string to_ipadr, const char* data);
-	const char* content;
+	Packet(char* data);
+	char* content;
 	size_t content_length;
-	string to_ip_address;
-	int from_port, to_port;
 	char packet_buffer[PACKET_SIZE];
-	int packet_size;
+	size_t packet_size;
 	uint16_t checksum;
 	const char* type_string;
 };
 
 class DataPacket: public Packet {
 public:
-	DataPacket(int from_port, int to_port, string to_ipadr, const char* data);
+	DataPacket(char* data);
+	DataPacket();
 };
 
-class AckPacket: public Packet {
+class AckPacket: public DataPacket {
 public:
 	AckPacket();
 };
 
-class NakPacket: public Packet {
+class NakPacket: public DataPacket {
 public:
 	NakPacket();
 };
 
-class RequestPacket: public Packet {
+class RequestPacket: public DataPacket {
 public:
 	RequestPacket(ReqType type);
+};
+
+class RTTPacket: public DataPacket {
+public:
+	RTTPacket(ReqType type, char* data);
+	RTTPacket(ReqType type);
 };
 
 #endif /* PACKETS_H_ */

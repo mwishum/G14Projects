@@ -7,42 +7,64 @@
 //============================================================================
 
 #include "packets.h"
+#include "Sockets.h"
 
-void printBinary(int num) {
-	cout << bitset<16>(num) << " " << num << endl;
+Packet::Packet() :
+		Packet(NO_CONTENT) {
 }
 
-Packet::Packet(int from_port, int to_port, string to_ipadr) :
-		Packet(from_port, to_port, to_ipadr, NULL) {
-}
-
-Packet::Packet(int from_port, int to_port, string to_ipadr, const char* data) :
-		content(data), content_length(strlen(data)), to_ip_address(to_ipadr), from_port(
-				from_port), to_port(to_port), packet_size(0), checksum(0), type_string(
-				"XXX") {
+Packet::Packet(char* data) :
+		content(data), content_length(strlen(data)), packet_size(0), checksum(0), type_string("XXX") {
 	memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
 
 Packet::~Packet() {
-	// TODO Auto-generated destructor stub
+	//free (content);
 }
 
-DecodeResult Packet::DecodePacket(void* buff, size_t buffsize, Packet* out) {
+StatusResult Packet::DecodePacket() {
+	char *buf_pack_type = (char *) packet_buffer;
+	uint16_t *buf_checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
+	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
 
-	return DecodeResult::FatalError;
+	string buf_pack_type_s;
+	buf_pack_type_s.insert(0, buf_pack_type, 3);
+	bool type_matches = buf_pack_type_s == type_string;
+	this->checksum = *buf_checksum;
+	*buf_checksum = 0;
+	uint16_t actualsum = Checksum();
+	dprint("pck type", buf_pack_type_s)
+	dprint("act type", type_string)
+	assert(type_matches);
+	dprint("pck checksum", this->checksum);
+	dprint("act checksum", actualsum);
+	assert(this->checksum == actualsum);
+	if (!type_matches) {
+		return StatusResult::NotExpectedType;
+	}
+	if (this->checksum != actualsum) {
+		return StatusResult::ChecksumDoesNotMatch;
+	}
+	content_length = strlen(data);
+	content = (char*) malloc(content_length);
+	strcpy(content, data);
+	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+
+	return StatusResult::Success;
 }
 
 uint16_t Packet::Checksum() {
 	register uint16_t sum;
 	uint8_t oddbyte;
 	uint16_t *pointer = (uint16_t*) packet_buffer;
+	int size = packet_size;
 	sum = 0;
-	while (packet_size > 1) {
+	while (size > 1) {
 		sum += *pointer;
 		pointer++;
-		packet_size -= 2;
+		size -= 2;
 	}
-	if (packet_size == 1) {
+	if (size == 1) {
 		oddbyte = 0;
 		*((u_char*) &oddbyte) = *(u_char*) packet_buffer;
 		sum += oddbyte;
@@ -54,60 +76,80 @@ uint16_t Packet::Checksum() {
 }
 
 void Packet::Finalize() {
-	//Sending Packet from server
 	char *packet_type = (char *) packet_buffer;
 	uint16_t *checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
 	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
 	strcpy(packet_type, type_string);
 	*checksum = 0;
+
 	strcpy(data, content);
 	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
 	*checksum = Checksum();
 
-	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
-
 	//Received packed from server
-	//cout << "packet checksum:" << endl;
-	printBinary(*checksum);
-	uint16_t secondsum = Checksum();
+	//cout << "packet checksum: ";
+	//printBinary(*checksum);
+	//uint16_t secondsum = Checksum();
 	//cout << "Re-checksumed (with existing csum):" << endl;
-	printBinary(secondsum);
-	*checksum = 0;
-	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
-	uint16_t zerosum = Checksum();
+	//printBinary(secondsum);
+	//*checksum = 0;
+	//packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+	//uint16_t zerosum = Checksum();
 	//cout << "Re-checksumed (after zeroing csum):" << endl;
-	printBinary(zerosum);
-	uint16_t added = zerosum + ~secondsum;
+	//printBinary(zerosum);
+	//uint16_t added = zerosum + ~secondsum;
 	//cout << "zeroed csum + existing csum:" << endl;
-	printBinary(added);
+	//printBinary(added);
 }
 
-void Packet::Send() {
+StatusResult Packet::Send() {
+	Finalize();
+
+	StatusResult r = StatusResult::Success;
+	//Only tamper with buffer when still sending packet
+	//with errors added.
+	//if(gremlin(packet_buffer, packet_size)) {
+	r = _send_to_socket();
+	//}
+	return r;
+}
+
+StatusResult Packet::_send_to_socket() {
+	return Sockets::instance()->Send(packet_buffer, &packet_size);
+}
+
+StatusResult Packet::Receive() {
+	packet_size = PACKET_SIZE;
+	StatusResult res = Sockets::instance()->Receive(packet_buffer, &packet_size);
+	if (res != StatusResult::Success) {
+		return res;
+	} else
+		return DecodePacket();
 
 }
 
-void Packet::_send_to_socket() {
-
+DataPacket::DataPacket(char* data) :
+		Packet(data) {
+	type_string = DATA;
 }
 
-DataPacket::DataPacket(int from_port, int to_port, string to_ipadr,
-		const char* data) :
-		Packet(from_port, to_port, to_ipadr, data) {
+DataPacket::DataPacket() :
+		Packet() {
 	type_string = DATA;
 }
 
 AckPacket::AckPacket() :
-		Packet(0, 0, "") {
+		DataPacket() {
 	type_string = ACK;
 }
 
 NakPacket::NakPacket() :
-		Packet(0, 0, "") {
+		DataPacket() {
 	type_string = NO_ACK;
 }
 
 RequestPacket::RequestPacket(ReqType type) :
-		Packet(0, 0, "") {
+		DataPacket() {
 	switch (type) {
 	case ReqType::Fail:
 		type_string = GET_FAIL;
@@ -118,6 +160,21 @@ RequestPacket::RequestPacket(ReqType type) :
 	case ReqType::Success:
 		type_string = GET_SUCCESS;
 		break;
+	default:
+		break;
 	}
+}
+
+RTTPacket::RTTPacket(ReqType type, char* data) :
+		DataPacket(data) {
+	if (type == ReqType::RTTClient) {
+		type_string = RTT_TEST_CLIENT;
+	} else {
+		type_string = RTT_TEST_SERVER;
+	}
+}
+
+RTTPacket::RTTPacket(ReqType type) :
+		RTTPacket(type, NO_CONTENT) {
 }
 

@@ -8,13 +8,14 @@
 
 #include "project.h"
 #include "packets.h"
+#include "Sockets.h"
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
-	//Testing datagram things
-	DataPacket p(1, 2, "localhost", "\u028contentlajdflsajfljsdfjeskj");
-	p.Finalize();
+	////////Testing datagram things
+	//DataPacket p(1, 2, "localhost", "\u028contentlajdflsajfljsdfjeskj");
+	//p.Finalize();
 
 	///////////////////////////////////////////////
 	cout << "Welcome to the socket test!" << endl;
@@ -28,7 +29,7 @@ int main(int argc, char *argv[]) {
 	//get list of adapters and addresses
 	getifaddrs(&ifAddrStruct);
 	cout << "Pick an adapter to use:" << endl;
-	vector<string> addresses;
+	vector < string > addresses;
 	int index = 0;
 	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) {
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
 	//Print Menu
 	cout << "========== Menu ==========" << endl;
 	cout << "[e]xit, [c]lient, [s]erver" << endl;
+	cout << " [c2] client, [s2] server " << endl;
 	while (exit) {
 		cout << ">";
 		cin >> in;
@@ -93,7 +95,7 @@ int main(int argc, char *argv[]) {
 				perror("Invlaid address");
 				break;
 			}
-			server_address.sin_port = htons(PORT_SERVER_DATA);
+			server_address.sin_port = htons(PORT_SERVER);
 			server_addr_len = sizeof(server_address);
 			//bind socket with addresses
 			n = bind(socket_id, (sockaddr*) &server_address, server_addr_len);
@@ -102,14 +104,12 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
-			cout << "Waiting on connection.\n(send CTRL+Y on client to end)"
-					<< endl;
+			cout << "Waiting on connection.\n(send CTRL+Y on client to end)" << endl;
 			bool exiting = false;
 			while (!exiting) {
 				memset(buffer, NOTHING, 256);
 				client_addr_len = sizeof(client_address);
-				n = recvfrom(socket_id, buffer, sizeof(buffer), 0,
-						(sockaddr *) &client_address, &client_addr_len);
+				n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, &client_addr_len);
 				if (n < 0) {
 					perror("Error recvfrom");
 					break;
@@ -122,8 +122,7 @@ int main(int argc, char *argv[]) {
 				}
 				string message = "echo:";
 				message.copy(buffer, message.length(), 0);
-				n = sendto(socket_id, buffer, sizeof(buffer), 0,
-						(sockaddr *) &client_address, client_addr_len);
+				n = sendto(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, client_addr_len);
 				if (n < 0) {
 					perror("Error sendto");
 					break;
@@ -160,10 +159,9 @@ int main(int argc, char *argv[]) {
 					perror("Invlaid address");
 					break;
 				}
-				server_address.sin_port = htons(PORT_SERVER_DATA);
+				server_address.sin_port = htons(PORT_SERVER);
 
-				if (connect(socket_id, (sockaddr *) &server_address,
-						sizeof(server_address)) < 0) {
+				if (connect(socket_id, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
 					perror("ERROR connecting");
 					break;
 				}
@@ -193,6 +191,23 @@ int main(int argc, char *argv[]) {
 				close(socket_id);
 				return -1;
 			}
+		} else if (in == "c2") { //******CLIENT CODE******//
+
+			cout << "Enter server address: ";
+			string host;
+			getline(cin, host);
+			getline(cin, host);
+			Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
+			cout << "Success starting client." << endl;
+			Sockets::instance()->TestRoundTrip(CLIENT);
+			cout << "end RTT test" << endl;
+
+		} else if (in == "s2") { //******SERVER CODE******//
+
+			Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
+			cout << "Success starting server." << endl;
+			Sockets::instance()->TestRoundTrip(SERVER);
+			cout << "end RTT test" << endl;
 		}
 	}
 	return 0;
