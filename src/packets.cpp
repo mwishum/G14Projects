@@ -10,45 +10,56 @@
 #include "Sockets.h"
 
 Packet::Packet() :
-		Packet(NO_CONTENT) {
-}
+		Packet(NO_CONTENT,1) {
+		}
 
-Packet::Packet(char* data) :
-		content(data), content_length(strlen(data)), packet_size(0), checksum(0), type_string("XXX") {
+Packet::Packet(char* data, size_t data_len) :
+		content(NULL), content_length(data_len), packet_size(0), checksum(0), sequence_num(
+				0), type_string("X") {
+	content = new char[data_len];
+	memcpy(content, data, data_len);
 	memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
 
 Packet::~Packet() {
-	//free (content);
+	//delete[] content;
 }
 
 StatusResult Packet::DecodePacket() {
 	char *buf_pack_type = (char *) packet_buffer;
-	uint16_t *buf_checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
-	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
+	uint8_t *seq_num = (uint8_t*) packet_buffer + sizeof(char);
+	uint16_t *buf_checksum = (uint16_t *) (packet_buffer + sizeof(uint8_t)
+			+ sizeof(char));
+	char *data = (char*) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
+			+ sizeof(char));
 
-	string buf_pack_type_s;
-	buf_pack_type_s.insert(0, buf_pack_type, 3);
-	bool type_matches = buf_pack_type_s == type_string;
+	bool type_matches = *buf_pack_type == *type_string;
 	this->checksum = *buf_checksum;
 	*buf_checksum = 0;
 	uint16_t actualsum = Checksum();
-	dprint("pck type", buf_pack_type_s)
+	dprint("pck type", buf_pack_type)
 	dprint("act type", type_string)
-	assert(type_matches);
 	dprint("pck checksum", this->checksum);
 	dprint("act checksum", actualsum);
-	assert(this->checksum == actualsum);
+	dprint("pck seq#", *seq_num);
+	dprint("act seq#", sequence_num);
 	if (!type_matches) {
 		return StatusResult::NotExpectedType;
 	}
 	if (this->checksum != actualsum) {
 		return StatusResult::ChecksumDoesNotMatch;
 	}
+	if (this->sequence_num != *seq_num) {
+		return StatusResult::OutOfSequence;
+	}
+	assert(this->checksum == actualsum);
+	assert(type_matches);
+	assert(content != NULL);
+	assert(data != NULL);
 	content_length = strlen(data);
-	content = (char*) malloc(content_length);
+	content = new char[content_length];
 	strcpy(content, data);
-	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+	packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
 
 	return StatusResult::Success;
 }
@@ -75,15 +86,26 @@ uint16_t Packet::Checksum() {
 	return ~sum;
 }
 
+size_t Packet::max_content() {
+	return 256 - (sizeof(uint8_t) + sizeof(uint16_t) + sizeof(char));
+}
+
 void Packet::Finalize() {
 	char *packet_type = (char *) packet_buffer;
-	uint16_t *checksum = (uint16_t *) (packet_buffer + sizeof(char) * 3);
-	char *data = (char*) (packet_buffer + sizeof(uint16_t) + sizeof(char) * 3);
+	uint8_t *seq_num = (uint8_t*) packet_buffer + sizeof(char);
+	uint16_t *checksum = (uint16_t *) (packet_buffer + sizeof(uint8_t)
+			+ sizeof(char));
+	char *data = (char*) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
+			+ sizeof(char));
 	strcpy(packet_type, type_string);
 	*checksum = 0;
+	*seq_num = sequence_num;
 
+	if (content_length > max_content())
+		dprint("ERROR", "content too big")
 	strcpy(data, content);
-	packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
+	packet_size = sizeof(char) + sizeof(uint16_t) + sizeof(uint8_t)
+			+ content_length;
 	*checksum = Checksum();
 
 	//Received packed from server
@@ -115,12 +137,14 @@ StatusResult Packet::Send() {
 }
 
 StatusResult Packet::_send_to_socket() {
+	//CALL FINALIZE ON YOUR OWN
 	return Sockets::instance()->Send(packet_buffer, &packet_size);
 }
 
 StatusResult Packet::Receive() {
 	packet_size = PACKET_SIZE;
-	StatusResult res = Sockets::instance()->Receive(packet_buffer, &packet_size);
+	StatusResult res = Sockets::instance()->Receive(packet_buffer,
+			&packet_size);
 	if (res != StatusResult::Success) {
 		return res;
 	} else
@@ -128,8 +152,16 @@ StatusResult Packet::Receive() {
 
 }
 
-DataPacket::DataPacket(char* data) :
-		Packet(data) {
+void Packet::Sequence(uint8_t n_seq) {
+	sequence_num = n_seq;
+}
+
+uint8_t Packet::Sequence() {
+	return sequence_num;
+}
+
+DataPacket::DataPacket(char* data, size_t data_len) :
+		Packet(data, data_len) {
 	type_string = DATA;
 }
 
@@ -138,15 +170,15 @@ DataPacket::DataPacket() :
 	type_string = DATA;
 }
 
-AckPacket::AckPacket() :
-		DataPacket() {
-	type_string = ACK;
-}
+AckPacket::AckPacket(uint8_t seq) :
+		DataPacket(NO_CONTENT,seq) {
+			type_string = ACK;
+		}
 
-NakPacket::NakPacket() :
-		DataPacket() {
-	type_string = NO_ACK;
-}
+NakPacket::NakPacket(uint8_t seq) :
+		DataPacket(NO_CONTENT,seq) {
+			type_string = NO_ACK;
+		}
 
 RequestPacket::RequestPacket(ReqType type) :
 		DataPacket() {
@@ -166,7 +198,7 @@ RequestPacket::RequestPacket(ReqType type) :
 }
 
 RTTPacket::RTTPacket(ReqType type, char* data) :
-		DataPacket(data) {
+		DataPacket(data, 0) {
 	if (type == ReqType::RTTClient) {
 		type_string = RTT_TEST_CLIENT;
 	} else {
@@ -176,5 +208,5 @@ RTTPacket::RTTPacket(ReqType type, char* data) :
 
 RTTPacket::RTTPacket(ReqType type) :
 		RTTPacket(type, NO_CONTENT) {
-}
+		}
 

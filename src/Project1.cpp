@@ -9,6 +9,7 @@
 #include "project.h"
 #include "packets.h"
 #include "Sockets.h"
+#include "FileManager.h"
 
 using namespace std;
 
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]) {
 	//p.Finalize();
 
 	///////////////////////////////////////////////
-	cout << "Welcome to the socket test!" << endl;
+	cout << "Ver " << __DATE__ << " " << __TIME__ << endl;
 	struct ifaddrs * ifAddrStruct = NULL;
 	struct ifaddrs * ifa = NULL;
 	void * tmpAddrPtr = NULL;
@@ -29,7 +30,7 @@ int main(int argc, char *argv[]) {
 	//get list of adapters and addresses
 	getifaddrs(&ifAddrStruct);
 	cout << "Pick an adapter to use:" << endl;
-	vector < string > addresses;
+	vector<string> addresses;
 	int index = 0;
 	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) {
@@ -49,9 +50,10 @@ int main(int argc, char *argv[]) {
 
 	cout << "Adapter #:";
 	cin >> in;
-	string this_address = addresses[strtol(in.c_str(), NULL, 10)];
+	uint sel = strtol(in.c_str(), NULL, 10);
+	string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
-	//Print Menu
+	cout << "(running on " << this_address << ")" << endl;
 	cout << "========== Menu ==========" << endl;
 	cout << "[e]xit, [c]lient, [s]erver" << endl;
 	cout << " [c2] client, [s2] server " << endl;
@@ -104,12 +106,14 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
-			cout << "Waiting on connection.\n(send CTRL+Y on client to end)" << endl;
+			cout << "Waiting on connection.\n(send CTRL+Y on client to end)"
+					<< endl;
 			bool exiting = false;
 			while (!exiting) {
 				memset(buffer, NOTHING, 256);
 				client_addr_len = sizeof(client_address);
-				n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, &client_addr_len);
+				n = recvfrom(socket_id, buffer, sizeof(buffer), 0,
+						(sockaddr *) &client_address, &client_addr_len);
 				if (n < 0) {
 					perror("Error recvfrom");
 					break;
@@ -122,7 +126,8 @@ int main(int argc, char *argv[]) {
 				}
 				string message = "echo:";
 				message.copy(buffer, message.length(), 0);
-				n = sendto(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, client_addr_len);
+				n = sendto(socket_id, buffer, sizeof(buffer), 0,
+						(sockaddr *) &client_address, client_addr_len);
 				if (n < 0) {
 					perror("Error sendto");
 					break;
@@ -161,7 +166,8 @@ int main(int argc, char *argv[]) {
 				}
 				server_address.sin_port = htons(PORT_SERVER);
 
-				if (connect(socket_id, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
+				if (connect(socket_id, (sockaddr *) &server_address,
+						sizeof(server_address)) < 0) {
 					perror("ERROR connecting");
 					break;
 				}
@@ -197,17 +203,31 @@ int main(int argc, char *argv[]) {
 			string host;
 			getline(cin, host);
 			getline(cin, host);
-			Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
+			Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT,
+			PORT_SERVER);
 			cout << "Success starting client." << endl;
 			Sockets::instance()->TestRoundTrip(CLIENT);
 			cout << "end RTT test" << endl;
 
 		} else if (in == "s2") { //******SERVER CODE******//
 
-			Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
+			Sockets::instance()->OpenServer(this_address, "127.0.0.1",
+			PORT_SERVER, PORT_CLIENT);
 			cout << "Success starting server." << endl;
 			Sockets::instance()->TestRoundTrip(SERVER);
 			cout << "end RTT test" << endl;
+		} else if (in == "f") {
+			cout << "Enter file name: ";
+			string fname;
+			getline(cin, fname);
+			getline(cin, fname);
+			FileManager mgr(CLIENT);
+			mgr.ReadFile(fname);
+			vector<DataPacket> packet_list;
+			mgr.BreakFile(packet_list);
+			cout << "Breaking file complete, putting back together" << endl;
+			mgr.WriteFile("d_" + fname);
+			mgr.JoinFile(packet_list);
 		}
 	}
 	return 0;
