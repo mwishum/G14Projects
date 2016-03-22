@@ -6,7 +6,6 @@
 // March 9, 2016
 //============================================================================
 
-#include "project.h"
 #include "packets.h"
 #include "Sockets.h"
 
@@ -269,7 +268,7 @@ int Sockets::TestRoundTrip(int side) {
 		FD_SET(socket_id, &socks);
 		char cnt[2];
 		sprintf(cnt, "%d", trips);
-		ReqType type_send = (side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient;
+		ReqType type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
 		RTTPacket init(type_send, cnt);
 		if (trips == 4) {
 			dprintm("[li] send", init.Send())
@@ -285,7 +284,7 @@ int Sockets::TestRoundTrip(int side) {
 			dprintm("[l] rcv", in.Receive())
 			chrono::microseconds span = chrono::duration_cast < chrono::microseconds > (end_time - start_time);
 			trip_times[trips] = span.count();
-			type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
+			type_send = (side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient;
 			RTTPacket out(type_send); /*Send opposite type of packet to other side*/
 			dprintm("[l] send", out.Send())
 			start_time = chrono::steady_clock::now();

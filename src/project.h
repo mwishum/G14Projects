@@ -37,7 +37,7 @@
 #define dprintm(a,b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
 
 inline void printBinary(int a) {
-	std::cout << std::bitset < 16 > (a) << " " << a << std::endl;
+	std::cout << std::bitset<16>(a) << " " << a << std::endl;
 }
 
 // END DEBUG
@@ -47,7 +47,7 @@ inline void printBinary(int a) {
 #define PORT_EXTRA  10064
 
 #define NOTHING 0
-#define NO_CONTENT const_cast<char*>("NO_CNT")
+#define NO_CONTENT const_cast<char*>("")
 
 #define PACKET_SIZE 256
 
@@ -60,10 +60,12 @@ enum class StatusResult {
 	CouldNotOpen,
 	ChecksumDoesNotMatch,
 	NotExpectedType,
+	OutOfSequence,
 	Timeout
 };
 
-static std::string StatusMessage[] = { "Success", "Error", "FatalError", "NotInitialized", "AlreadyInitialized",
-		"CouldNotOpen", "ChecksumDoesNotMatch", "NotExpectedType", "Timeout" };
+static std::string StatusMessage[] = { "Success", "Error", "FatalError",
+		"NotInitialized", "AlreadyInitialized", "CouldNotOpen",
+		"ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout" };
 
 #endif
