@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         freeifaddrs(ifAddrStruct);
 
     cout << "Adapter #:";
-    cin >> in;
+    getline(cin, in);
     long sel = strtol(in.c_str(), NULL, 10);
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
@@ -63,24 +63,26 @@ int main(int argc, char *argv[]) {
     cout << " [c2] client, [s2] server " << endl;
     while (exit) {
         cout << ">";
-        cin >> in;
+        getline(cin, in);
+        for (int i = 0; in[i]; i++)
+            in[i] = tolower(in[i]);
+        vector<string> command = split(in, ' ');
 
+        cout << "  cmd~" << in << "~ " << command.size() << endl;
         int socket_id;
         socklen_t client_addr_len, server_addr_len;
         char buffer[256];
         struct sockaddr_in server_address, client_address;
-        int n;
+        ssize_t n;
 
-        for (int i = 0; in[i]; i++)
-            in[i] = tolower(in[i]);
-        if (in == "e") {
+        if (command[0] == "e") {
             exit = false;
             close(socket_id);
             cout << "Goodbye!" << endl;
             break;
-        } else if (in == "s") {
+        } else if (command[0] == "s") {
             /*
-             * SERVER
+             *  OLD SERVER
              */
             //make a new socket for Datagrams over the Internet
             socket_id = socket(AF_INET, SOCK_DGRAM, 0);
@@ -135,9 +137,9 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-        } else if (in == "c") {
+        } else if (command[0] == "c") {
             /*
-             * CLIENT
+             * OLD CLIENT
              */
             try {
                 struct hostent *server;
@@ -150,7 +152,6 @@ int main(int argc, char *argv[]) {
                 printf("Socket opened\n");
                 cout << "Enter host to connect to: ";
                 string host;
-                getline(cin, host);
                 getline(cin, host);
                 server = gethostbyname(host.c_str());
                 if (server == NULL) {
@@ -198,16 +199,16 @@ int main(int argc, char *argv[]) {
                 close(socket_id);
                 return -1;
             }
-        } else if (in == "c2") { //******CLIENT CODE******//
-
-            cout << "Enter server address: ";
+        } else if (command[0] == "c2") { //******CLIENT CODE******//
             string host;
-            getline(cin, host);
-            getline(cin, host);
+            if (command.size() < 2) {
+                cout << "Enter server address: ";
+                getline(cin, host);
+            } else host = command[1];
             Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
             cout << "Success starting client." << endl;
-            Sockets::instance()->TestRoundTrip(CLIENT);
-            cout << "end RTT test" << endl;
+            //Sockets::instance()->TestRoundTrip(CLIENT);
+            //cout << "end RTT test" << endl;
 
             cout << endl << " !!! Testing Await function !!! " << endl << endl;
             char *temp_msg = (char *) "Hello!";
@@ -219,21 +220,23 @@ int main(int argc, char *argv[]) {
             RequestPacket requestPacket(ReqType::Fail, temp_msg);
             requestPacket.Send();
 
-        } else if (in == "s2") { //******SERVER CODE******//
+        } else if (command[0] == "s2") { //******SERVER CODE******//
+            string damage_prob, loss_prob;
+            if (command.size() < 3) {
+                cout << "Enter damage probability: ";
+                getline(cin, damage_prob);
+                cout << "Enter loss probability: ";
+                getline(cin, loss_prob);
+            } else {
+                damage_prob = command[1];
+                damage_prob = command[2];
+            }
 
-            cout << "Enter damage probability: ";
-            string damage_prob;
-            getline(cin, damage_prob);
-            getline(cin, damage_prob);
-            cout << "Enter loss probability: ";
-            string loss_prob;
-            getline(cin, loss_prob);
             Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-
             Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
             cout << "Success starting server." << endl;
-            Sockets::instance()->TestRoundTrip(SERVER);
-            cout << "end RTT test" << endl;
+            //Sockets::instance()->TestRoundTrip(SERVER);
+            //cout << "end RTT test" << endl;
             cout << endl << " !!! Await starting (you must CTRL+C) !!! " << endl << endl;
             Packet *temp = new Packet();
             string temp_type;
@@ -241,18 +244,23 @@ int main(int argc, char *argv[]) {
                 dprintm("AWAIT RETURNED", Sockets::instance()->AwaitPacket(temp, temp_type));
                 cout << endl;
             }
-        } else if (in == "f") { /* FILE COPY TEST */
-            cout << "Enter file name: ";
-            string fname;
-            getline(cin, fname);
-            getline(cin, fname);
+        } else if (command[0] == "f") { /* FILE COPY TEST */
+            string file_name;
+            if (command.size() < 2) {
+                cout << "Enter file name: ";
+                getline(cin, file_name);
+            } else {
+                file_name = command[1];
+            }
             FileManager mgr(CLIENT);
-            mgr.ReadFile(fname);
+            mgr.ReadFile(file_name);
             vector<DataPacket> packet_list;
             mgr.BreakFile(packet_list);
             cout << "File broken, putting back together" << endl;
-            mgr.WriteFile("d_" + fname);
+            mgr.WriteFile("d_" + file_name);
             mgr.JoinFile(packet_list);
+        } else {
+            continue;
         }
     }
     return 0;

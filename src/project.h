@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <string>
 #include <string.h>
+#include <sstream>
 #include <locale>
 #include <vector>
 #include <bitset>
@@ -40,6 +41,17 @@
 
 inline void printBinary(int a) {
     std::cout << std::bitset<16>(a) << " " << a << std::endl;
+}
+
+inline std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    std::stringstream ss(s);
+    std::string item;
+    while (getline(ss, item, delim)) {
+        if (!item.empty())
+            elems.push_back(item);
+    }
+    return elems;
 }
 
 // END DEBUG
