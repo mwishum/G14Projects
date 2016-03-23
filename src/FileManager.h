@@ -15,22 +15,24 @@
 #include <fstream>
 #include <iterator>
 #include <algorithm>
+#include <sys/stat.h>
 
 using namespace std;
 
 class FileManager {
-	fstream in_file;
-	fstream out_file;
-	char* file_buffer;
-	int man_side;
+    fstream in_file;
+    fstream out_file;
+    char *file_buffer;
+    int man_side;
 
 public:
-	FileManager(int side);
-	StatusResult ReadFile(string path);
-	StatusResult WriteFile(string path);
-	StatusResult BreakFile(vector<DataPacket> &packs);
-	StatusResult JoinFile(vector<DataPacket> &packs);
-	virtual ~FileManager();
+    FileManager(int side);
+    StatusResult ReadFile(const string &path);
+    StatusResult WriteFile(const string &path);
+    StatusResult BreakFile(vector<DataPacket> &packs);
+    StatusResult JoinFile(vector<DataPacket> &packs);
+    bool FileExists(const string &name);
+    virtual ~FileManager();
 };
 
 #endif /* FILEMANAGER_H_ */

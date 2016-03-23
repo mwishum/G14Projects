@@ -12,23 +12,28 @@ FileManager::FileManager(int side) :
         file_buffer(NULL), man_side(side) {
 }
 
-StatusResult FileManager::ReadFile(string path) {
+StatusResult FileManager::ReadFile(const string &path) {
     in_file.open(path, ios::in | ios::binary | ios::ate);
     file_buffer = new char[Packet::max_content()];
     if (in_file.is_open() && in_file.good())
         return StatusResult::Success;
     else
-        perror("open file error");
+        perror("File Read Error");
     return StatusResult::FatalError;
 }
 
-StatusResult FileManager::WriteFile(string path) {
+StatusResult FileManager::WriteFile(const string &path) {
     out_file.open(path, ios::out | ios::binary);
+    file_buffer = new char[Packet::max_content()];
+    if (out_file.is_open() && out_file.good())
+        return StatusResult::Success;
+    else
+        perror("File Write Error");
     return StatusResult::FatalError;
 }
 
 StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
-    if (in_file == NULL && !in_file.is_open()) {
+    if (in_file == NULL || !in_file.is_open()) {
         cerr << "FILE NOT OPEN/VALID" << endl;
         return StatusResult::NotInitialized;
     }
@@ -66,7 +71,7 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
 }
 
 StatusResult FileManager::JoinFile(vector<DataPacket> &packs) {
-    if (out_file == NULL && !out_file.is_open() && packs.size() < 1) {
+    if (out_file == NULL || !out_file.is_open() || packs.size() < 1) {
         cerr << "FILE NOT OPEN/VALID/NO PACKETS" << endl;
         return StatusResult::NotInitialized;
     }
@@ -86,3 +91,16 @@ FileManager::~FileManager() {
     if (out_file.is_open())
         out_file.close();
 }
+
+bool FileManager::FileExists(const string &name) {
+    if (man_side == CLIENT) {
+        RequestPacket req_send(ReqType::Info, (char *) &name[0]);
+        StatusResult res;
+        dprintm("Sending filename to server", res = req_send.Send())
+        return true;
+    }
+    struct stat buffer;
+    return (stat(name.c_str(), &buffer) == 0);
+}
+
+

@@ -7,18 +7,14 @@
 //============================================================================
 
 #include "packets.h"
-#include "Sockets.h"
 
 using namespace std;
 
 Sockets *Sockets::manager = NULL;
 
-Sockets::Sockets() {
-    this->initialized = false;
-    this->socket_id = -1;
-    this->socket_ready = false;
-    deft_timeout.tv_sec = 0;
-    deft_timeout.tv_usec = 200000;
+Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use_manual_timeout(false) {
+    deft_timeout.tv_sec = TIMEOUT_SEC;
+    deft_timeout.tv_usec = TIMEOUT_MSEC;
 }
 
 /**
@@ -131,14 +127,16 @@ void Sockets::Close() {
  * Blocks while waiting to receive a packet.
  *
  * @param buffer Packet buffer returned
- * @param bufflen Length of packet expected, actual length returned via
- * @return packet returned by buffer and its size in bufflen.
- * Status of receipt returned
+ * @param bufflen Length of packet expected, actual length returned via.
+ *
+ * @return packet returned by buffer and its size in bufflen. Status of receipt returned.
  */
 StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
     if (!initialized) {
         return StatusResult::NotInitialized;
     }
+    assert(buffer != NULL);
+    assert(*bufflen > 0 && *bufflen <= PACKET_SIZE);
     memset(buffer, NOTHING, *bufflen); /*Clear buffer that packet will be put in*/
     socklen_t length = sizeof(client_sock_addr); /*length of struct*/
     size_t res = (size_t) recvfrom(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, &length);
@@ -147,6 +145,10 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
         return StatusResult::FatalError;
     }
     buffer[res] = 0; /*Set last byte to null*/
+    if (res > PACKET_SIZE) {
+        cerr << "PACKET TO LARGE (" << res << "), DROPPED" << endl;
+        return StatusResult::FatalError;
+    }
     *bufflen = res; /*Return length via pointer*/
     if (DEBUG) {
         cout << "recvd packet [begin]";
@@ -181,7 +183,9 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
 StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, timeval &timeout) {
     FD_ZERO (&socks);
     FD_SET(socket_id, &socks);
-    int rval = select(socket_id + 1, &socks, NULL, NULL, &timeout);
+    struct timeval *temp = new timeval;
+    memcpy(temp, &timeout, sizeof(timeval));
+    int rval = select(socket_id + 1, &socks, NULL, NULL, temp);
     if (rval < 0) {
         perror("Receive select error");
         return StatusResult::FatalError;
@@ -221,7 +225,15 @@ Sockets::~Sockets() {
     Close();
 }
 
+/**
+ * Tests the mean round trip time between client and server
+ *
+ * @param side Integer representing client or server
+ *
+ * @return int Average RTT
+ */
 int Sockets::TestRoundTrip(int side) {
+    use_manual_timeout = true;
     ResetTimeout(10, 0);
     int trips = 5;
     char dat[] = "start";
@@ -237,6 +249,9 @@ int Sockets::TestRoundTrip(int side) {
         if (res == StatusResult::Timeout) {
             perror("Server did not respond to RTT start");
             return -1;
+        } else if (res != StatusResult::Success) {
+            dprintm("Failed communicating with server", res)
+            return -1;
         }
     }
 
@@ -248,9 +263,12 @@ int Sockets::TestRoundTrip(int side) {
         if (res == StatusResult::Timeout) {
             perror("Client did not respond to RTT start");
             return -1;
-        } else {
+        } else if (res == StatusResult::Success) {
             RTTPacket my_resp(ReqType::RTTServer);
             dprintm("[s] to client", my_resp.Send())
+        } else {
+            dprintm("Failed communicating with client", res)
+            return -1;
         }
     }
     dprint("starting", "loop")
@@ -286,10 +304,78 @@ int Sockets::TestRoundTrip(int side) {
     rtt_determined.tv_usec = average;
     rtt_determined.tv_sec = 0;
     dprint("Average RTT", average)
+    use_manual_timeout = false;
     return average;
 }
 
-void Sockets::ResetTimeout(long int sec = TIMEOUT_SEC, long int micro_sec = TIMEOUT_MSEC) {
-    deft_timeout.tv_sec = sec;
-    deft_timeout.tv_usec = micro_sec;
+void Sockets::ResetTimeout(long int sec, long int micro_sec) {
+    if (use_manual_timeout) {
+        deft_timeout.tv_sec = sec;
+        deft_timeout.tv_usec = micro_sec;
+    }
+    else {
+        deft_timeout.tv_sec = rtt_determined.tv_sec;
+        deft_timeout.tv_usec = rtt_determined.tv_usec;
+    }
 }
+
+/**
+ * Blocks FOREVER until a packet is received.
+ *
+ * @param packet Packet to be returned by pointer
+ * @param type String representing packet returned
+ *
+ * @return result of awaiting.
+ */
+StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
+    char buffer[PACKET_SIZE];
+    size_t length = PACKET_SIZE;
+    Receive(buffer, &length);
+    DataPacket *temp = new DataPacket();
+    memcpy(temp->packet_buffer, buffer, length);
+    temp->packet_size = length;
+    temp->ConvertFromBuffer();
+    dprintm("Await init dec res", temp->DecodePacket())
+    switch (temp->type_string[0]) {
+        case 'A': //ACK
+            packet = new AckPacket(temp->sequence_num);
+            type = ACK;
+            return packet->DecodePacket(buffer, length);
+        case 'N': //NO_ACK
+            packet = new NakPacket(temp->sequence_num);
+            type = NO_ACK;
+            return packet->DecodePacket(buffer, length);
+        case 'G': //GET_INFO
+            packet = new RequestPacket(ReqType::Info, temp->content);
+            type = GET_INFO;
+            return packet->DecodePacket(buffer, length);
+        case 'F': //GET_FAIL
+            packet = new RequestPacket(ReqType::Fail, temp->content);
+            type = GET_FAIL;
+            return packet->DecodePacket(buffer, length);
+        case 'S': //GET_SUCCESS
+            packet = new RequestPacket(ReqType::Success, temp->content);
+            type = GET_SUCCESS;
+            return packet->DecodePacket(buffer, length);
+        case 'C': //RTT_TEST_CLIENT
+            packet = new RTTPacket(ReqType::RTTClient);
+            type = RTT_TEST_CLIENT;
+            return packet->DecodePacket(buffer, length);
+        case 'V': //RTT_TEST_SERVER
+            packet = new RTTPacket(ReqType::RTTServer);
+            type = RTT_TEST_SERVER;
+            return packet->DecodePacket(buffer, length);
+        case 'D': //DATA
+            packet = new DataPacket(temp->content, temp->content_length);
+            type = DATA;
+            return packet->DecodePacket(buffer, length);
+        case 'H': //GREETING
+            packet = new GreetingPacket(temp->content, temp->content_length);
+            type = GREETING;
+            return packet->DecodePacket(buffer, length);
+        default:
+            return StatusResult::FatalError;
+    }
+}
+
+

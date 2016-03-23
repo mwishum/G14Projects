@@ -35,6 +35,8 @@
 #define DEBUG true /*CHANGE TO FALSE for no debug printing*/
 #define dprint(a, b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
 #define dprintm(a, b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
+#define dprintcmp(des, rec, act) if(DEBUG) {cout << (des) << " - Recd:" << (rec) << " Act:"<< (act) <<endl;}
+#define dprintcmph(des, rec, act) if(DEBUG) {cout  << (des) << " - Recd:" << hex <<(rec) << " Act:"<< (act)  << dec <<endl;}
 
 inline void printBinary(int a) {
     std::cout << std::bitset<16>(a) << " " << a << std::endl;

@@ -37,31 +37,32 @@ StatusResult Packet::DecodePacket() {
     bool type_matches = *buf_pack_type == *type_string;
     this->checksum = *buf_checksum;
     *buf_checksum = 0;
-    uint16_t actualsum = Checksum();
-    dprint("pck type", buf_pack_type)
-    dprint("act type", this->type_string)
-    dprint("pck checksum", this->checksum);
-    dprint("act checksum", actualsum);
-    dprint("pck seq#", *seq_num);
-    dprint("act seq#", this->sequence_num);
-    if (!type_matches) {
-        return StatusResult::NotExpectedType;
-    }
-    if (this->checksum != actualsum) {
+    uint16_t actual_sum = Checksum();
+    dprintcmp(" TYPE", buf_pack_type, this->type_string)
+    dprintcmph(" CHKSUM", this->checksum, actual_sum);
+    dprintcmph(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
+    if (this->checksum != actual_sum) {
+        //Packet is invalid
         return StatusResult::ChecksumDoesNotMatch;
     }
-    if (this->sequence_num != *seq_num) {
-        return StatusResult::OutOfSequence;
-    }
-    assert(this->checksum == actualsum);
-    assert(type_matches);
+    assert(this->checksum == actual_sum);
     assert(content != NULL);
     assert(data != NULL);
+
     content_length = strlen(data);
     content = new char[content_length];
     strcpy(content, data);
     packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
 
+    if (this->sequence_num != *seq_num) {
+        //Packet was not expected
+        return StatusResult::OutOfSequence;
+    } else {
+        this->sequence_num = *seq_num;
+    }
+    if (!type_matches) {
+        return StatusResult::NotExpectedType;
+    }
     return StatusResult::Success;
 }
 
@@ -69,7 +70,7 @@ uint16_t Packet::Checksum() {
     register uint16_t sum;
     uint8_t oddbyte;
     uint16_t *pointer = (uint16_t *) packet_buffer;
-    int size = packet_size;
+    size_t size = packet_size;
     sum = 0;
     while (size > 1) {
         sum += *pointer;
@@ -88,7 +89,7 @@ uint16_t Packet::Checksum() {
 }
 
 size_t Packet::max_content() {
-    return 256 - (sizeof(uint8_t) + sizeof(uint16_t) + sizeof(char));
+    return PACKET_SIZE - (sizeof(uint8_t) + sizeof(uint16_t) + sizeof(char));
 }
 
 void Packet::Finalize() {
@@ -110,31 +111,15 @@ void Packet::Finalize() {
                   + content_length;
     this->checksum = Checksum();
     *checksum = this->checksum;
-
-    //Received packed from server
-    //cout << "packet checksum: ";
-    printBinary(*checksum);
-    //uint16_t secondsum = Checksum();
-    //cout << "Re-checksumed (with existing csum):" << endl;
-    //printBinary(secondsum);
-    //*checksum = 0;
-    //packet_size = sizeof(char) * 3 + sizeof(uint16_t) + content_length;
-    //uint16_t zerosum = Checksum();
-    //cout << "Re-checksumed (after zeroing csum):" << endl;
-    //printBinary(zerosum);
-    //uint16_t added = zerosum + ~secondsum;
-    //cout << "zeroed csum + existing csum:" << endl;
-    //printBinary(added);
+    //printBinary(*checksum);
 }
 
 StatusResult Packet::Send() {
     Finalize();
 
     StatusResult r = StatusResult::Success;
-    //Only tamper with buffer when still sending packet
-    //with errors added.
     if (Sockets::instance()->GetSide() == SERVER
-            && Gremlin::instance()->tamper(packet_buffer, &packet_size) == StatusResult::Success) {
+        && Gremlin::instance()->tamper(packet_buffer, &packet_size) == StatusResult::Success) {
         r = _send_to_socket();
     } else if (Sockets::instance()->GetSide() == CLIENT) {
         r = _send_to_socket();
@@ -144,14 +129,14 @@ StatusResult Packet::Send() {
 }
 
 StatusResult Packet::_send_to_socket() {
-    //CALL FINALIZE ON YOUR OWN
+    //CALL FINALIZE BEFORE
     return Sockets::instance()->Send(packet_buffer, &packet_size);
 }
 
 StatusResult Packet::Receive() {
     packet_size = PACKET_SIZE;
     StatusResult res = Sockets::instance()->ReceiveTimeout(packet_buffer,
-                                                    &packet_size);
+                                                           &packet_size);
     if (res != StatusResult::Success) {
         return res;
     } else
@@ -166,6 +151,32 @@ void Packet::Sequence(uint8_t n_seq) {
 uint8_t Packet::Sequence() {
     return sequence_num;
 }
+
+StatusResult Packet::DecodePacket(char *packet_buffer, size_t buf_length) {
+    memcpy(this->packet_buffer, packet_buffer, buf_length);
+    this->packet_size = buf_length;
+    ConvertFromBuffer();
+    return DecodePacket();
+}
+
+/**
+ * Converts this packet to the type contained in the buffer.
+ *
+ * WARNING: Only use when you know the buffer is of the same type as the packet
+ */
+void Packet::ConvertFromBuffer() {
+    char *buf_pack_type = (char *) packet_buffer;
+    uint8_t *seq_num = (uint8_t *) (packet_buffer + sizeof(char));
+    char *data = (char *) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
+                           + sizeof(char));
+
+    type_string = buf_pack_type;
+    content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
+    content = new char[content_length];
+    strcpy(content, data);
+    this->sequence_num = *seq_num;
+}
+
 
 DataPacket::DataPacket(char *data, size_t data_len) :
         Packet(data, data_len) {
@@ -189,8 +200,8 @@ NakPacket::NakPacket(uint8_t seq) :
     Sequence(seq);
 }
 
-RequestPacket::RequestPacket(ReqType type) :
-        DataPacket() {
+RequestPacket::RequestPacket(ReqType type, char *data) :
+        DataPacket(data, strlen(data)) {
     switch (type) {
         case ReqType::Fail:
             type_string = GET_FAIL;
@@ -217,5 +228,10 @@ RTTPacket::RTTPacket(ReqType type, char *data) :
 
 RTTPacket::RTTPacket(ReqType type) :
         RTTPacket(type, NO_CONTENT) {
+}
+
+
+GreetingPacket::GreetingPacket(char *data, size_t data_len) : DataPacket(data, data_len) {
+    type_string = GREETING;
 }
 

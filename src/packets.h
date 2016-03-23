@@ -10,79 +10,97 @@
 #define PACKETS_H_
 
 #include "project.h"
+#include "Sockets.h"
 
-#define ACK 			"A"
-#define NO_ACK 			"N"
-#define GET_INFO 		"G"
-#define GET_FAIL 		"F"
-#define GET_SUCCESS		"S"
-#define DATA			"D"
-#define RTT_TEST_CLIENT	"C"
-#define RTT_TEST_SERVER	"V"
-#define GREETING		"G"
+#define ACK               "A"
+#define NO_ACK            "N"
+#define GET_INFO          "G"
+#define GET_FAIL          "F"
+#define GET_SUCCESS       "S"
+#define DATA              "D"
+#define RTT_TEST_CLIENT   "C"
+#define RTT_TEST_SERVER   "V"
+#define GREETING          "H"
 
 using namespace std;
 
 enum class ReqType {
-	Info, Fail, Success, RTTClient, RTTServer
+    Info, Fail, Success, RTTClient, RTTServer
 };
 
 class Packet {
+    friend class Sockets;
+
 public:
-	Packet();
-	virtual ~Packet();
-	virtual StatusResult DecodePacket();
-	virtual uint16_t Checksum() final;
-	virtual void Finalize();
-	virtual StatusResult Send();
-	virtual StatusResult Receive();
-	virtual StatusResult _send_to_socket();
-	static size_t max_content();
-	char * Content() {
-		return content;
-	}
-	size_t ContentSize() {
-		return content_length;
-	}
-	void Sequence(uint8_t n_seq);
-	uint8_t Sequence();
+    Packet();
+    virtual ~Packet();
+    virtual StatusResult DecodePacket();
+    virtual uint16_t Checksum() final;
+    virtual void Finalize();
+    virtual StatusResult Send();
+    virtual StatusResult Receive();
+    static size_t max_content();
+    char *Content() {
+        return content;
+    }
+    size_t ContentSize() {
+        return content_length;
+    }
+    void Sequence(uint8_t n_seq);
+    uint8_t Sequence();
 
 protected:
-	Packet(char* data, size_t data_len);
-	char* content;
-	size_t content_length;
-	char packet_buffer[PACKET_SIZE];
-	size_t packet_size;
-	uint16_t checksum;
-	uint8_t sequence_num;
-	const char* type_string;
+    virtual StatusResult _send_to_socket();
+    Packet(char *data, size_t data_len);
+    virtual StatusResult DecodePacket(char *packet_buffer, size_t buf_length);
+    virtual void ConvertFromBuffer();
+    char *content;
+    size_t content_length;
+    char packet_buffer[PACKET_SIZE];
+    size_t packet_size;
+    uint16_t checksum;
+    uint8_t sequence_num;
+    const char *type_string;
 };
 
-class DataPacket: public Packet {
+class DataPacket : public Packet {
 public:
-	DataPacket(char* data, size_t data_len);
-	DataPacket();
+    DataPacket(char *data, size_t data_len);
+    DataPacket();
 };
 
-class AckPacket: public DataPacket {
+class AckPacket : public DataPacket {
 public:
-	AckPacket(uint8_t seq);
+    AckPacket(uint8_t seq);
+    StatusResult Send() {
+        Finalize();
+        return _send_to_socket();
+    }
 };
 
-class NakPacket: public DataPacket {
+class NakPacket : public DataPacket {
 public:
-	NakPacket(uint8_t seq);
+    NakPacket(uint8_t seq);
+    StatusResult Send() {
+        Finalize();
+        return _send_to_socket();
+    }
 };
 
-class RequestPacket: public DataPacket {
+class RequestPacket : public DataPacket {
 public:
-	RequestPacket(ReqType type);
+    RequestPacket(ReqType type, char *data);
 };
 
-class RTTPacket: public DataPacket {
+class RTTPacket : public DataPacket {
 public:
-	RTTPacket(ReqType type, char* data);
-	RTTPacket(ReqType type);
+    RTTPacket(ReqType type, char *data);
+    RTTPacket(ReqType type);
+};
+
+class GreetingPacket : public DataPacket {
+public:
+    GreetingPacket(char *data, size_t data_len);
 };
 
 #endif /* PACKETS_H_ */
