@@ -10,6 +10,7 @@
 #include "packets.h"
 #include "Sockets.h"
 #include "FileManager.h"
+#include "Gremlin.h"
 
 using namespace std;
 
@@ -203,6 +204,15 @@ int main(int argc, char *argv[]) {
 			cout << "end RTT test" << endl;
 
 		} else if (in == "s2") { //******SERVER CODE******//
+
+			cout << "Enter damage probability: ";
+			string damage_prob;
+			getline(cin, damage_prob);
+			getline(cin, damage_prob);
+			cout << "Enter loss probability: ";
+			string loss_prob;
+			getline(cin, loss_prob);
+			Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
 
 			Sockets::instance()->OpenServer(this_address, "127.0.0.1",
 			PORT_SERVER, PORT_CLIENT);
