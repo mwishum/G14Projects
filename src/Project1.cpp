@@ -14,16 +14,12 @@
 using namespace std;
 
 int main(int argc, char *argv[]) {
-	////////Testing datagram things
-	//DataPacket p(1, 2, "localhost", "\u028contentlajdflsajfljsdfjeskj");
-	//p.Finalize();
-
 	///////////////////////////////////////////////
 	cout << "Ver " << __DATE__ << " " << __TIME__ << endl;
 	struct ifaddrs * ifAddrStruct = NULL;
 	struct ifaddrs * ifa = NULL;
 	void * tmpAddrPtr = NULL;
-	bool exit = true, server_needs_ending = false;
+	bool volatile exit = true, server_needs_ending = false;
 	string in;
 	locale loc;
 
@@ -50,7 +46,7 @@ int main(int argc, char *argv[]) {
 
 	cout << "Adapter #:";
 	cin >> in;
-	uint sel = strtol(in.c_str(), NULL, 10);
+	long sel = strtol(in.c_str(), NULL, 10);
 	string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
 	cout << "(running on " << this_address << ")" << endl;
@@ -70,9 +66,6 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; in[i]; i++)
 			in[i] = tolower(in[i]);
 		if (in == "e") {
-			if (server_needs_ending) {
-
-			}
 			exit = false;
 			close(socket_id);
 			cout << "Goodbye!" << endl;

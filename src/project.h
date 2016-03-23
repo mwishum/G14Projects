@@ -6,8 +6,8 @@
 // March 9, 2016
 //============================================================================
 
-#ifndef	PROJECT_H
-#define	PROJECT_H
+#ifndef    PROJECT_H
+#define    PROJECT_H
 
 #include <iostream>
 #include <stdio.h>
@@ -33,11 +33,11 @@
 #include <cassert>
 
 #define DEBUG true /*CHANGE TO FALSE for no debug printing*/
-#define dprint(a,b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
-#define dprintm(a,b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
+#define dprint(a, b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
+#define dprintm(a, b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
 
 inline void printBinary(int a) {
-	std::cout << std::bitset<16>(a) << " " << a << std::endl;
+    std::cout << std::bitset<16>(a) << " " << a << std::endl;
 }
 
 // END DEBUG
@@ -51,21 +51,25 @@ inline void printBinary(int a) {
 
 #define PACKET_SIZE 256
 
+#define TIMEOUT_SEC 0
+#define TIMEOUT_MSEC 200000
+
 enum class StatusResult {
-	Success,
-	Error,
-	FatalError,
-	NotInitialized,
-	AlreadyInitialized,
-	CouldNotOpen,
-	ChecksumDoesNotMatch,
-	NotExpectedType,
-	OutOfSequence,
-	Timeout
+    Success,
+    Error,
+    FatalError,
+    NotInitialized,
+    AlreadyInitialized,
+    CouldNotOpen,
+    ChecksumDoesNotMatch,
+    NotExpectedType,
+    OutOfSequence,
+    Timeout
 };
 
-static std::string StatusMessage[] = { "Success", "Error", "FatalError",
-		"NotInitialized", "AlreadyInitialized", "CouldNotOpen",
-		"ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout" };
+static std::string StatusMessage[] = {
+        "Success", "Error", "FatalError",
+        "NotInitialized", "AlreadyInitialized", "CouldNotOpen",
+        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout"};
 
 #endif

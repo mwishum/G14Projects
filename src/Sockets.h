@@ -26,20 +26,21 @@ class Sockets {
 	bool socket_ready;
 	bool initialized;
 	fd_set socks;
-	struct timeval deft_timeout;
+	struct timeval deft_timeout, rtt_determined;
 
 public:
 	Sockets();
-	StatusResult BindAddresses(string address_from, string address_to, int port_from, int port_to);
+	StatusResult BindAddresses(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
 	virtual ~Sockets();
-	StatusResult OpenServer(string address_from, string address_to, int port_from, int port_to);
-	StatusResult OpenClient(string address_from, string address_to, int port_from, int port_to);
+	StatusResult OpenServer(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
+	StatusResult OpenClient(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
 	void Close();
 	StatusResult Receive(char *buffer, size_t* bufflen);
 	StatusResult ReceiveTimeout(char *buffer, size_t *bufflen);
 	StatusResult ReceiveTimeout(char *buffer, size_t *bufflen, timeval &timeout);
 	StatusResult Send(char *buffer, size_t* bufflen);
 	int TestRoundTrip(int side);
+	void ResetTimeout(long int sec, long int micro_sec);
 	static Sockets *instance() {
 		if (manager == NULL) {
 			manager = new Sockets;
