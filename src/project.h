@@ -64,12 +64,13 @@ enum class StatusResult {
     ChecksumDoesNotMatch,
     NotExpectedType,
     OutOfSequence,
-    Timeout
+    Timeout,
+    Dropped
 };
 
 static std::string StatusMessage[] = {
         "Success", "Error", "FatalError",
         "NotInitialized", "AlreadyInitialized", "CouldNotOpen",
-        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout"};
+        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout", "Dropped"};
 
 #endif

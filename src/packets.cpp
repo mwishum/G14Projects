@@ -8,6 +8,7 @@
 
 #include "packets.h"
 #include "Sockets.h"
+#include "Gremlin.h"
 
 Packet::Packet() :
         Packet(NO_CONTENT, 1) {
@@ -132,9 +133,13 @@ StatusResult Packet::Send() {
     StatusResult r = StatusResult::Success;
     //Only tamper with buffer when still sending packet
     //with errors added.
-    //if(gremlin(packet_buffer, packet_size)) {
-    r = _send_to_socket();
-    //}
+    if (Sockets::instance()->GetSide() == SERVER
+            && Gremlin::instance()->tamper(packet_buffer, &packet_size) == StatusResult::Success) {
+        r = _send_to_socket();
+    } else if (Sockets::instance()->GetSide() == CLIENT) {
+        r = _send_to_socket();
+    }
+
     return r;
 }
 

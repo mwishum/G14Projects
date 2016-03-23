@@ -73,6 +73,7 @@ StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
+    side = SERVER;
     StatusResult bindr = BindAddresses(address_from, address_to, port_from, port_to);
     if (bindr != StatusResult::Success)
         return bindr;
@@ -100,6 +101,7 @@ StatusResult Sockets::OpenClient(string address_from, string address_to, uint16_
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
+    side = CLIENT;
     StatusResult bindr = BindAddresses(address_from, address_to, port_from, port_to);
     if (bindr != StatusResult::Success)
         return bindr;
@@ -147,9 +149,9 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
     buffer[res] = 0; /*Set last byte to null*/
     *bufflen = res; /*Return length via pointer*/
     if (DEBUG) {
-        cout << "recvd packet [begin]\n";
+        cout << "recvd packet [begin]";
         fwrite(buffer, *bufflen, 1, stdout);
-        cout << endl << "[end]" << endl;
+        cout << " " << "[end]" << endl;
     } /*DEBUG*/
     return StatusResult::Success;
 }
@@ -164,7 +166,6 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
  * Status of receipt returned
  */
 StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
-    ResetTimeout(rtt_determined.tv_sec,rtt_determined.tv_usec);
     return ReceiveTimeout(buffer, bufflen, deft_timeout);
 }
 
@@ -204,9 +205,9 @@ StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
     }
     socklen_t length = sizeof(client_sock_addr);
     if (DEBUG) {
-        cout << "sent packet [begin]\n";
+        cout << "sent packet [begin]";
         fwrite(buffer, *bufflen, 1, stdout);
-        cout << endl << "[end]" << endl;
+        cout << " " << "[end]" << endl;
     }/*DEBUG*/
     ssize_t res = sendto(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, length);
     if (res < 0) {

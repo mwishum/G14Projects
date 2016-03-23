@@ -21,6 +21,7 @@ class Sockets {
 
 	static Sockets *manager;
 	int socket_id;
+	int side;
 	struct sockaddr_in server_sock_addr;
 	struct sockaddr_in client_sock_addr;
 	bool socket_ready;
@@ -41,6 +42,7 @@ public:
 	StatusResult Send(char *buffer, size_t* bufflen);
 	int TestRoundTrip(int side);
 	void ResetTimeout(long int sec, long int micro_sec);
+	int GetSide() { return side; }
 	static Sockets *instance() {
 		if (manager == NULL) {
 			manager = new Sockets;
