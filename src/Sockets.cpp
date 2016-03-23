@@ -102,9 +102,9 @@ StatusResult Sockets::OpenClient(string address_from, string address_to, uint16_
         return StatusResult::AlreadyInitialized;
     }
     side = CLIENT;
-    StatusResult bindr = BindAddresses(address_from, address_to, port_from, port_to);
-    if (bindr != StatusResult::Success)
-        return bindr;
+    StatusResult bind_res = BindAddresses(address_from, address_to, port_from, port_to);
+    if (bind_res != StatusResult::Success)
+        return bind_res;
 
     int res = connect(socket_id, (sockaddr *) &client_sock_addr, sizeof(client_sock_addr));
     if (res < 0) {
