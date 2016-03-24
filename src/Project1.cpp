@@ -329,9 +329,10 @@ int main(int argc, char *argv[]) {
                     if (loops++ >= 30000) {
                         cout << "bye" << endl;
                         break;
+
                     }
-                }
-            }
+                } //***ELSE IF GET INFO
+            } //***WHILE
         } else if (primary == "f") { /* FILE COPY TEST */
             string file_name;
             if (command.size() < 2) {
