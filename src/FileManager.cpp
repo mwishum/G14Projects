@@ -97,35 +97,10 @@ FileManager::~FileManager() {
 bool FileManager::FileExists(const string &name) {
     dprint("file exists?", name)
     if (man_side == CLIENT) {
-        RequestPacket req_send(ReqType::Info, (char *) &name[0], name.length());
-        StatusResult res;
-        dprintm("Sending filename to server", res = req_send.Send())
-        fwrite(req_send.Content(), req_send.ContentSize(), 1, stdout);
-        cout << endl;
-        Packet unknown;
-        string type;
-        res = Sockets::instance()->AwaitPacket(&unknown, type);
-        if (type == ACK) {
-            return true;
-        } else if (type == GET_FAIL && res == StatusResult::Success) {
-            return false;
-        } else {
-            dprintm("Response from server get info - error", res)
-        }
+
     }
     if (man_side == SERVER) {
-        struct stat buffer;
-        bool file_exists(stat(name.c_str(), &buffer) == 0);
 
-        if (file_exists) {
-            RequestPacket suc(ReqType::Success, (char *) &name[0], name.length());
-            suc.Send();
-            return true;
-        } else {
-            RequestPacket fail(ReqType::Fail, (char *) &name[0], name.length());
-            fail.Send();
-            return false;
-        }
     }
 }
 

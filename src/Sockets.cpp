@@ -320,7 +320,7 @@ void Sockets::ResetTimeout(long int sec, long int micro_sec) {
 }
 
 /**
- * Blocks FOREVER until a packet is received.
+ * Blocks until a packet is received or Timeout.
  *
  * @param packet Packet to be returned by pointer
  * @param type String representing packet returned
@@ -328,9 +328,11 @@ void Sockets::ResetTimeout(long int sec, long int micro_sec) {
  * @return result of awaiting.
  */
 StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
+    if (!this->initialized) return StatusResult::NotInitialized;
     char buffer[PACKET_SIZE];
     size_t length = PACKET_SIZE;
-    Receive(buffer, &length);
+    StatusResult rec = ReceiveTimeout(buffer, &length);
+    if (rec != StatusResult::Success) return rec;
     DataPacket *temp = new DataPacket();
     memcpy(temp->packet_buffer, buffer, length);
     temp->packet_size = length;
