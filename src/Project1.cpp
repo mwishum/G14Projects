@@ -97,27 +97,7 @@ int main(int argc, char *argv[]) {
             cout << "File broken, putting back together" << endl;
             mgr.WriteFile("d_" + file_name);
             mgr.JoinFile(packet_list);
-        } else if (primary == "_c") { /////////////////////////////previously client
-            string host;
-            if (command.size() < 2) {
-                cout << "Enter server address: ";
-                getline(cin, host);
-            } else host = command[1];
-            Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
-            cout << "Success starting client." << endl;
-            Sockets::instance()->TestRoundTrip(CLIENT);
-            cout << "end RTT test" << endl;
-
-            cout << endl << " !!! Testing Await function !!! " << endl << endl;
-            char *temp_msg = (char *) "Hello!";
-            DataPacket d(temp_msg, strlen(temp_msg));
-            d.Sequence(1);
-            d.Send();
-            AckPacket ackPacket(0);
-            ackPacket.Send();
-            RequestPacket requestPacket(ReqType::Fail, temp_msg, strlen(temp_msg));
-            requestPacket.Send();
-        } else { //******NO COMMAND******//
+        }  else { //******NO COMMAND******//
             continue;
         }
     } //***END MAIN WHILE

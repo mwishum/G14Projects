@@ -35,11 +35,24 @@ inline bool main_client(string this_address, vector<string> &command) {
     }
     cout << "Success starting client." << endl;
 
+    GreetingPacket hello(&this_address[0], this_address.size());
+    hello.Send();
+    result = hello.Receive();
+    if (result != StatusResult::Success) {
+        cout << "Could not reach server (" << StatusMessage[(int) result] << "). " << endl;
+    } else {
+        cout << "Server ";
+        fwrite(hello.Content(), hello.ContentSize(), 1, stdout);
+        cout << " responded." << endl;
+    }
+
     while (true) {
         client:
+        int loops = 0;
         cout << ">>";
         getline(cin, in);
         command.clear();
+        file_name.clear();
         command = split(in, ' ');
         primary = command.empty() ? "" : command[0];
         if (primary == "get" || primary == "GET") {
@@ -49,9 +62,9 @@ inline bool main_client(string this_address, vector<string> &command) {
             } else file_name = command[1];
 
             //Find out if file exists on server
-            RequestPacket req_send(ReqType::Info, &file_name[0], file_name.length());
-            dprintm("Sending filename to server", result = req_send.Send())
-            fwrite(req_send.Content(), req_send.ContentSize(), 1, stdout);
+            RequestPacket *req_send = new RequestPacket(ReqType::Info, &file_name[0], file_name.size());
+            dprintm("Sending filename to server", result = req_send->Send())
+            fwrite(req_send->Content(), req_send->ContentSize(), 1, stdout);
             cout << endl;
             string p_type;
             while (true) {
@@ -61,7 +74,10 @@ inline bool main_client(string this_address, vector<string> &command) {
                     next.Send();
                 } else dprintm("receive server file status error", result)
                 if (p_type == GET_SUCCESS) {
-                    cout << "Get success, file transmission in progress" <<endl;
+                    cout << "Get success, file transmission in progress" << endl;
+                    cout << "\n\nRTT Test\n";
+                    Sockets::instance()->TestRoundTrip(CLIENT);
+                    cout << "\nEnd RTT Test\n\n";
                     break; //File exists
                 }
                 if (p_type == GET_FAIL) {
@@ -83,6 +99,10 @@ inline bool main_client(string this_address, vector<string> &command) {
                 result = dataPacket.Receive();
 
                 if (dataPacket.Content() == "") { // BREAK ON THIS
+                    if (loops++ >= MAX_LOOPS) {
+                        cout << "OUT OF LOOPS" << endl;
+                        break;
+                    }
                     break;
                 }
 
@@ -98,7 +118,15 @@ inline bool main_client(string this_address, vector<string> &command) {
                     cout << "Packet has errors! - Sequence Number: " << seq << endl;
                 } else {
                     dprintm("Status Result", result)
+                    if (loops++ >= MAX_LOOPS) {
+                        cout << "OUT OF LOOPS" << endl;
+                        break;
+                    }
                     goto receive_more;
+                }
+                if (loops++ >= MAX_LOOPS) {
+                    cout << "OUT OF LOOPS" << endl;
+                    break;
                 }
             }
 
@@ -108,6 +136,10 @@ inline bool main_client(string this_address, vector<string> &command) {
             cout << "[client closed]" << endl;
             return true; //Back to main program loop
         } else {
+            if (loops++ >= MAX_LOOPS) {
+                cout << "OUT OF LOOPS" << endl;
+                break;
+            }
             continue; //Continue client menu loop
         }
     }
@@ -158,8 +190,8 @@ inline void proof_client(string this_address) {
 
     cout << "Enter message: ";
     getline(cin, inbuff);
-    inbuff.copy(buffer, inbuff.length());
-    n = send(socket_id, buffer, inbuff.length(), 0);
+    inbuff.copy(buffer, inbuff.size());
+    n = send(socket_id, buffer, inbuff.size(), 0);
     cout << "=|" << buffer << "|=" << endl;
     if (n < 0) {
         perror("ERROR writing to socket");

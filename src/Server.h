@@ -45,16 +45,23 @@ inline bool main_server(string this_address, vector<string> &command) {
     int loops = 0;
 
     while (true) {
+        size_t size = PACKET_SIZE;
         dprintm("server await returned", result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
-        if(result != StatusResult::Success) continue;
+        if (loops++ >= MAX_LOOPS) {
+            cout << "OUT OF LOOPS" << endl;
+            break;
+        }
+        if (result != StatusResult::Success) continue;
         dprint("Packet type", packet_type)
         if (packet_type == GREETING) {
-
+            GreetingPacket hello(NO_CONTENT, 1);
+            hello.DecodePacket(pack_buffer_a, size);
+            hello = GreetingPacket(&this_address[0], this_address.size());
+            hello.Send();
         } else if (packet_type == GET_INFO) { // GET FILE INFO
             bool file_exists;
             RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
             req_info.DecodePacket(pack_buffer_a, size);
-
 
             struct stat stat_buff;
             string file_name_from_client;
@@ -75,6 +82,10 @@ inline bool main_server(string this_address, vector<string> &command) {
                 AckPacket ack_file_exists(0);
                 dprintm("Client ack file exists", result = ack_file_exists.Receive());
                 if (result == StatusResult::Success) {
+                    cout << "\n\nRTT Test\n";
+                    Sockets::instance()->TestRoundTrip(SERVER);
+                    cout << "\nEnd RTT Test\n\n";
+
                     mgr.ReadFile(file_name_from_client);
                     vector<DataPacket> packet_list;
                     mgr.BreakFile(packet_list);
@@ -94,7 +105,7 @@ inline bool main_server(string this_address, vector<string> &command) {
                         uint8_t seq = received.Sequence();
 
                         if (seq != alt_bit) {
-                            cout << "Packet Status: Lost "  << endl;
+                            cout << "Packet Status: Lost " << endl;
                             cout << "Sequence number: " << (int) seq << endl;
                             cout << "Expected number: " << (int) alt_bit << endl;
                         }
@@ -114,9 +125,11 @@ inline bool main_server(string this_address, vector<string> &command) {
             //cout << endl << " !!! Await starting (you must CTRL+C) !!! " << endl << endl;
         } //***ELSE IF GET INFO
         else {
-
         }
-        if (loops++ >= 3000) { break; }
+        if (loops++ >= MAX_LOOPS) {
+            cout << "OUT OF LOOPS" << endl;
+            break;
+        }
     } //***WHILE
     return true;
 }
@@ -173,7 +186,7 @@ inline void proof_server(string this_address) {
             exiting = true;
         }
         string message = "echo:";
-        message.copy(buffer, message.length(), 0);
+        message.copy(buffer, message.size(), 0);
         n = sendto(socket_id, buffer, sizeof(buffer), 0,
                    (sockaddr *) &client_address, client_addr_len);
         if (n < 0) {
