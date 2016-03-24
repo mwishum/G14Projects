@@ -245,7 +245,7 @@ int Sockets::TestRoundTrip(int side) {
     char dat[] = "start";
     long trip_times[5];
     StatusResult res;
-    chrono::steady_clock::time_point start_time, end_time;
+    TIME_METHOD::time_point start_time, end_time;
     if (side == CLIENT) {
         dprint("RTTT side", "client")
         RTTPacket client_send(ReqType::RTTClient, dat, strlen(dat));
@@ -286,7 +286,7 @@ int Sockets::TestRoundTrip(int side) {
         RTTPacket init((side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient, p_content, strlen(p_content));
         if (trips == 4) {
             dprintm("[li] send", init.Send())
-            start_time = chrono::steady_clock::now();
+            start_time = TIME_METHOD::now();
         }
         RTTPacket in(type_send, p_content, strlen(p_content));
         dprintm("[l] rcv", res = in.Receive())
@@ -294,13 +294,13 @@ int Sockets::TestRoundTrip(int side) {
             perror("SELECT timeout");
             trip_times[trips] = 0;
         } else { /*the socket is ready to be read from*/
-            end_time = chrono::steady_clock::now();
+            end_time = TIME_METHOD::now();
             chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
             trip_times[trips] = span.count();
             type_send = (side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient;
             RTTPacket out(type_send, p_content, strlen(p_content)); /*Send opposite type of packet to other side*/
             dprintm("[l] send", out.Send())
-            start_time = chrono::steady_clock::now();
+            start_time = TIME_METHOD::now();
         }
     }
     if (side == CLIENT) {
@@ -333,64 +333,12 @@ void Sockets::ResetTimeout(long int sec, long int micro_sec) {
 /**
  * Blocks until a packet is received or Timeout.
  *
- * @param packet Packet to be returned by pointer
- * @param type String representing packet returned
+ * @param *packet_buf raw packet buffer received
+ * @param buff_len length of packet buffer
+ * @param &type Single letter string representing type of packet
  *
  * @return result of awaiting.
  */
-StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
-    if (!this->initialized) return StatusResult::NotInitialized;
-    char buffer[PACKET_SIZE];
-    size_t length = PACKET_SIZE;
-    StatusResult rec = ReceiveTimeout(buffer, &length);
-    if (rec != StatusResult::Success) return rec;
-    DataPacket *temp = new DataPacket();
-    memcpy(temp->packet_buffer, buffer, length);
-    temp->packet_size = length;
-    temp->ConvertFromBuffer();
-    dprintm("Await init dec res", temp->DecodePacket())
-    switch (temp->type_string[0]) {
-        case 'A': //ACK
-            packet = new AckPacket(temp->sequence_num);
-            type = ACK;
-            return packet->DecodePacket(buffer, length);
-        case 'N': //NO_ACK
-            packet = new NakPacket(temp->sequence_num);
-            type = NO_ACK;
-            return packet->DecodePacket(buffer, length);
-        case 'G': //GET_INFO
-            packet = new RequestPacket(ReqType::Info, temp->content, strlen(temp->content));
-            type = GET_INFO;
-            return packet->DecodePacket(buffer, length);
-        case 'F': //GET_FAIL
-            packet = new RequestPacket(ReqType::Fail, temp->content, strlen(temp->content));
-            type = GET_FAIL;
-            return packet->DecodePacket(buffer, length);
-        case 'S': //GET_SUCCESS
-            packet = new RequestPacket(ReqType::Success, temp->content, strlen(temp->content));
-            type = GET_SUCCESS;
-            return packet->DecodePacket(buffer, length);
-        case 'C': //RTT_TEST_CLIENT
-            packet = new RTTPacket(ReqType::RTTClient);
-            type = RTT_TEST_CLIENT;
-            return packet->DecodePacket(buffer, length);
-        case 'V': //RTT_TEST_SERVER
-            packet = new RTTPacket(ReqType::RTTServer);
-            type = RTT_TEST_SERVER;
-            return packet->DecodePacket(buffer, length);
-        case 'D': //DATA
-            packet = new DataPacket(temp->content, temp->content_length);
-            type = DATA;
-            return packet->DecodePacket(buffer, length);
-        case 'H': //GREETING
-            packet = new GreetingPacket(temp->content, temp->content_length);
-            type = GREETING;
-            return packet->DecodePacket(buffer, length);
-        default:
-            return StatusResult::FatalError;
-    }
-}
-
 StatusResult Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &type) {
     if (!this->initialized) return StatusResult::NotInitialized;
     StatusResult rec = ReceiveTimeout(packet_buf, buff_len);

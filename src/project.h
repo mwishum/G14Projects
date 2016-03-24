@@ -56,6 +56,16 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 
 // END DEBUG
 
+
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+/* Test for GCC < 4.7.0 */
+#if GCC_VERSION < 40700
+#pragma message "GCC Version less than 4.7.0, for " __FILE__  ", You should upgrade"
+#define TIME_METHOD std::chrono::monotonic_clock
+#else
+#define TIME_METHOD std::chrono::steady_clock
+#endif
+
 #define PORT_CLIENT 10062
 #define PORT_SERVER 10063
 #define PORT_EXTRA  10064
