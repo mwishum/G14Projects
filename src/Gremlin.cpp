@@ -25,6 +25,8 @@ StatusResult Gremlin::initialize(double damage_prob, double loss_prob) {
         return StatusResult::Error;
     }
 
+    cout << "D% " << damage_prob << "\nL%:" << loss_prob << endl;
+
     this->damage_prob = damage_prob;
     this->loss_prob = loss_prob;
     this->initialized = true;

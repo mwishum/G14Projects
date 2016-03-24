@@ -65,10 +65,10 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 
 #define PACKET_SIZE 256
 
-#define TIMEOUT_SEC 4
+#define TIMEOUT_SEC 2
 #define TIMEOUT_MSEC 0
 
-#define MAX_LOOPS 150
+#define MAX_LOOPS 500
 
 enum class StatusResult {
     Success,

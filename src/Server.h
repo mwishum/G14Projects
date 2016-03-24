@@ -27,7 +27,7 @@ inline bool main_server(string this_address, vector<string> &command) {
         getline(cin, loss_prob);
     } else {
         damage_prob = command[1];
-        damage_prob = command[2];
+        loss_prob = command[2];
     }
 
     Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
@@ -45,7 +45,7 @@ inline bool main_server(string this_address, vector<string> &command) {
     int loops = 0;
 
     while (true) {
-        size_t size = PACKET_SIZE;
+         size = PACKET_SIZE;
         dprintm("server await returned", result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
         if (loops++ >= MAX_LOOPS) {
             cout << "OUT OF LOOPS" << endl;
@@ -68,6 +68,8 @@ inline bool main_server(string this_address, vector<string> &command) {
             file_name_from_client.insert(0, req_info.Content(), req_info.ContentSize());
             file_exists = (stat(file_name_from_client.c_str(), &stat_buff) == 0);
             cout << "FILE `" << file_name_from_client << "` EXISTS ?";
+
+            send_file_ack_again:
             if (file_exists) {
                 RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
                 cout << " TRUE" << endl;
@@ -82,9 +84,9 @@ inline bool main_server(string this_address, vector<string> &command) {
                 AckPacket ack_file_exists(0);
                 dprintm("Client ack file exists", result = ack_file_exists.Receive());
                 if (result == StatusResult::Success) {
-//                    cout << "\n\nRTT Test\n";
-//                    Sockets::instance()->TestRoundTrip(SERVER);
-//                    cout << "\nEnd RTT Test\n\n";
+                    cout << "\n\nRTT Test\n";
+                    Sockets::instance()->TestRoundTrip(SERVER);
+                    cout << "\nEnd RTT Test\n\n";
 
                     mgr.ReadFile(file_name_from_client);
                     vector<DataPacket> packet_list;
@@ -96,11 +98,6 @@ inline bool main_server(string this_address, vector<string> &command) {
                             alt_bit = 0;
                         } else alt_bit = 1;
 
-                        // temp
-                        if (packet.ContentSize() == 1) {
-                            cout << "\nLAST PACKET!" << endl;
-                        }
-
                         send_again:
                         cout << endl;
                         packet.Sequence(alt_bit);
@@ -108,9 +105,6 @@ inline bool main_server(string this_address, vector<string> &command) {
 
                         dprintm("server await returned",
                                 result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
-
-
-                        cout << "TYPE:::::::::::::::::::::::: " << packet_type << endl;
 
                         if (packet_type == NO_ACK) {
                             NakPacket nakPacket(0);
@@ -130,7 +124,7 @@ inline bool main_server(string this_address, vector<string> &command) {
                             int seq = ackPacket.Sequence();
 
                             if (seq != alt_bit) {
-                                cout << "Packet Status: Lost (ACK)" << endl;
+                                cout << "Packet Status: Lost/Tampered (ACK)" << endl;
                                 cout << "Sequence number: " << seq << endl;
                                 cout << "Expected number: " << (int) alt_bit << endl;
 
@@ -140,17 +134,17 @@ inline bool main_server(string this_address, vector<string> &command) {
                             continue;
                         } else if (result == StatusResult::Timeout) {
                             goto send_again;
+                        } else if (packet_type == GET_SUCCESS) {
+                            break;
                         } else {
                             dprintm("Something Happened", result);
                         }
                     }
-
                     cout << "Finished file transmission." << endl;
+                } else if (result == StatusResult::Timeout) {
+                    goto send_file_ack_again;
                 }
             }
-            //Sockets::instance()->TestRoundTrip(SERVER);
-            //cout << "end RTT test" << endl;
-            //cout << endl << " !!! Await starting (you must CTRL+C) !!! " << endl << endl;
         } //***ELSE IF GET INFO
         else {
         }

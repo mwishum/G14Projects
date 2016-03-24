@@ -53,7 +53,7 @@ StatusResult Packet::DecodePacket() {
     assert(content != NULL);
     assert(data != NULL);
 
-    content_length = strlen(data);
+    content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
     content = new char[content_length];
     strcpy(content, data);
     packet_size = sizeof(char) + sizeof(uint16_t) + content_length;

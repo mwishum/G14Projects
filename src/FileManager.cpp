@@ -67,7 +67,7 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
         dprint("data", temp)
     }
     in_file.close();
-    DataPacket final_packet = DataPacket(NO_CONTENT, 1);
+    DataPacket final_packet = DataPacket(NO_CONTENT, 0);
     packs.push_back(final_packet);
     return StatusResult::Success;
 }
@@ -79,7 +79,7 @@ StatusResult FileManager::JoinFile(vector<DataPacket> &packs) {
     }
     dprint("Joining packets. Count", packs.size())
     out_file.seekg(0, ios::beg);
-    for (uint p_i = 0; p_i < packs.size() - 1; p_i++) {
+    for (uint p_i = 0; p_i < packs.size(); p_i++) {
         out_file.write(packs[p_i].Content(), packs[p_i].ContentSize());
     }
     out_file.close();
