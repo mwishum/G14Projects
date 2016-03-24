@@ -65,7 +65,7 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 
 #define PACKET_SIZE 256
 
-#define TIMEOUT_SEC 1
+#define TIMEOUT_SEC 2
 #define TIMEOUT_MSEC 0
 
 enum class StatusResult {

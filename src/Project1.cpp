@@ -239,33 +239,38 @@ int main(int argc, char *argv[]) {
             Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
             cout << "Success starting server." << endl;
 
-            string temp_type;
-            Packet *temp = new Packet();
+            string temp_type = "not";
+            char *pack_buffer_a = new char[PACKET_SIZE];
+            size_t *size = new size_t;
+            *size = PACKET_SIZE;
             int loops = 0;
             StatusResult result;
             while (true) {
                 FileManager mgr(SERVER);
-                dprintm("Await Returned", Sockets::instance()->AwaitPacket(temp, temp_type));
+                dprintm("Await Returned", Sockets::instance()->AwaitPacket(pack_buffer_a, size, temp_type));
+                cout << "type :" << temp_type << endl;
                 if (temp_type == GREETING) {
 
                 } else if (temp_type == GET_INFO) { // GET FILE INFO
-                    bool file_exists = false;
-                    ////// file exists check
+                    bool file_exists;
+                    RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
+                    req_info.DecodePacket(pack_buffer_a, *size);
 
-                    struct stat buffer;
-                    file_exists = (stat(temp->Content(), &buffer) == 0);
+
+                    struct stat stat_buff;
+                    string name;
+                    name.insert(0, req_info.Content(), req_info.ContentSize());
+                    file_exists = (stat(name.c_str(), &stat_buff) == 0);
+                    cout << "FILE " << name << " EXISTS ";
 
                     if (file_exists) {
-                        RequestPacket suc(ReqType::Success, temp->Content(), temp->ContentSize());
-                        cerr << "FILE EXISTS" << endl;
-                        fwrite(temp->Content(), temp->ContentSize(), 1, stdout);
+                        RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
+                        cerr << "TRUE" << endl;
                         suc.Send();
                     } else {
-                        RequestPacket fail(ReqType::Fail, temp->Content(), temp->ContentSize());
-                        cerr << "FILE DNE" << endl;
-                        fwrite(temp->Content(), temp->ContentSize(), 1, stdout);
+                        RequestPacket fail(ReqType::Fail, req_info.Content(), req_info.ContentSize());
+                        cerr << "FALSE" << endl;
                         fail.Send();
-                        continue;
                     }
 
                     //////
@@ -282,7 +287,6 @@ int main(int argc, char *argv[]) {
                                 file_name = command[1];
                             }
 
-                            FileManager mgr(CLIENT);
                             mgr.ReadFile(file_name);
                             vector<DataPacket> packet_list;
                             mgr.BreakFile(packet_list);
@@ -372,13 +376,21 @@ int main(int argc, char *argv[]) {
             dprintm("Sending filename to server", res = req_send.Send())
             fwrite(req_send.Content(), req_send.ContentSize(), 1, stdout);
             cout << endl;
-            Packet unknown;
+
+
             string type;
-            res = Sockets::instance()->AwaitPacket(&unknown, type);
+            char *pack_buffer_a = new char[PACKET_SIZE];
+            size_t *size = new size_t;
+            *size = PACKET_SIZE;
+            res = Sockets::instance()->AwaitPacket(pack_buffer_a, size, type);
             if (type == ACK) {
+                AckPacket a(0);
+                dprintm("ack pack", a.DecodePacket(pack_buffer_a, *size))
                 cerr << "GET FILE SUCCESS" << endl;
                 file_exists = true;
             } else if (type == GET_FAIL && res == StatusResult::Success) {
+                RequestPacket a(ReqType::Fail, NO_CONTENT, 1);
+                dprintm("ack pack", a.DecodePacket(pack_buffer_a, *size))
                 cerr << "GET FILE FAILED" << endl;
                 file_exists = false;
             } else {

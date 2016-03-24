@@ -380,4 +380,17 @@ StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
     }
 }
 
+StatusResult Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &type) {
+    if (!this->initialized) return StatusResult::NotInitialized;
+    char buffer[PACKET_SIZE];
+    size_t length = PACKET_SIZE;
+    StatusResult rec = ReceiveTimeout(buffer, &length);
+    if (rec != StatusResult::Success) return rec;
+    DataPacket *temp = new DataPacket();
+    memcpy(packet_buf, buffer, length);
+    *buff_len = length;
+    //temp->ConvertFromBuffer();
+    //dprintm("Await init dec res", temp->DecodePacket())
+    return  StatusResult::Success;
+}
 

@@ -35,6 +35,8 @@ public:
     Packet();
     virtual ~Packet();
     virtual StatusResult DecodePacket();
+    virtual StatusResult DecodePacket(char *packet_buffer, size_t buf_length);
+    virtual void ConvertFromBuffer();
     virtual uint16_t Checksum() final;
     virtual void Finalize();
     virtual StatusResult Send();
@@ -52,8 +54,6 @@ public:
 protected:
     virtual StatusResult _send_to_socket();
     Packet(char *data, size_t data_len);
-    virtual StatusResult DecodePacket(char *packet_buffer, size_t buf_length);
-    virtual void ConvertFromBuffer();
     char *content;
     size_t content_length;
     char packet_buffer[PACKET_SIZE];

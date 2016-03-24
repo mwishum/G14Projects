@@ -41,6 +41,7 @@ public:
     StatusResult Receive(char *buffer, size_t *bufflen);
     StatusResult ReceiveTimeout(char *buffer, size_t *bufflen);
     StatusResult ReceiveTimeout(char *buffer, size_t *bufflen, timeval &timeout);
+    StatusResult AwaitPacket(char *packet_buf, size_t *buff_len, string &type);
     StatusResult AwaitPacket(class Packet *packet, string &type);
     StatusResult Send(char *buffer, size_t *bufflen);
     int TestRoundTrip(int side);
