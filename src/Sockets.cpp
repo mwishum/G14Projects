@@ -37,11 +37,15 @@ StatusResult Sockets::BindAddresses(string address_from, string address_to, uint
 
     memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
     server_sock_addr.sin_family = AF_INET;
-    if (inet_aton(address_to.c_str(), &adr) == 0) {
-        perror("Invalid to address");
-        return StatusResult::CouldNotOpen;
+    if (address_to.empty()) {
+        server_sock_addr.sin_addr.s_addr = INADDR_ANY;
+    } else {
+        if (inet_aton(address_to.c_str(), &adr) == 0) {
+            perror("Invalid to address");
+            return StatusResult::CouldNotOpen;
+        }
+        server_sock_addr.sin_addr = adr;
     }
-    server_sock_addr.sin_addr = adr;
     server_sock_addr.sin_port = htons(port_to);
 
     memset(&client_sock_addr, NOTHING, sizeof(client_sock_addr));
@@ -65,12 +69,12 @@ StatusResult Sockets::BindAddresses(string address_from, string address_to, uint
  * @param port_to Port integer of far client
  * @return status of binding to socket
  */
-StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_t port_from, uint16_t port_to) {
+StatusResult Sockets::OpenServer(string address_from, uint16_t port_from, uint16_t port_to) {
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
     side = SERVER;
-    StatusResult bindr = BindAddresses(address_from, address_to, port_from, port_to);
+    StatusResult bindr = BindAddresses(address_from, "", port_from, port_to);
     if (bindr != StatusResult::Success)
         return bindr;
 
@@ -382,15 +386,14 @@ StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
 
 StatusResult Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &type) {
     if (!this->initialized) return StatusResult::NotInitialized;
-    char buffer[PACKET_SIZE];
-    size_t length = PACKET_SIZE;
-    StatusResult rec = ReceiveTimeout(buffer, &length);
+    StatusResult rec = ReceiveTimeout(packet_buf, buff_len);
     if (rec != StatusResult::Success) return rec;
     DataPacket *temp = new DataPacket();
-    memcpy(packet_buf, buffer, length);
-    *buff_len = length;
-    //temp->ConvertFromBuffer();
-    //dprintm("Await init dec res", temp->DecodePacket())
-    return  StatusResult::Success;
+    temp->packet_size = *buff_len;
+    memcpy(temp->packet_buffer, packet_buf, *buff_len);
+    *buff_len = *buff_len;
+    temp->ConvertFromBuffer();
+    type = temp->type_string;
+    return StatusResult::Success;
 }
 

@@ -8,22 +8,16 @@
 
 #include "project.h"
 #include "packets.h"
-#include "Sockets.h"
 #include "FileManager.h"
 #include "Gremlin.h"
+#include "Server.h"
+#include "Client.h"
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
     ///////////////////////////////////////////////
     cout << "Ver " << __DATE__ << " " << __TIME__ << endl;
-//    for (int i = 0; i <= 100; ++i) {
-//        usleep(30000);
-//        printf("\r[%3d%%]", i);
-//        cout << flush;
-//    }
-//    cout << endl;
-    ///////////////////////////////////////////////
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa = NULL;
     void *tmpAddrPtr = NULL;
@@ -59,150 +53,51 @@ int main(int argc, char *argv[]) {
 
     cout << "(running on " << this_address << ")" << endl;
     cout << "========== Menu ==========" << endl;
-    cout << "[e]xit, [_c]lient, [_s]erver" << endl;
-    cout << " [c] client, [s] server " << endl;
+    cout << " Server: s <dmg%> <loss%> " << endl;
+    cout << " Client: c <address> " << endl;
+    cout << "         get <filename> " << endl;
     while (exit) {
         cout << ">";
         getline(cin, in);
         for (int i = 0; in[i]; i++)
-            in[i] = tolower(in[i]);
+            in[i] = (char) tolower(in[i]);
         vector<string> command = split(in, ' ');
-        int socket_id;
-        socklen_t client_addr_len, server_addr_len;
-        char buffer[256];
-        struct sockaddr_in server_address, client_address;
-        ssize_t n;
+
         string primary;
         if (command.empty()) {
             primary = " ";
         } else {
             primary = command[0];
         }
-
-        if (primary == "e") {
+        if (primary == "e") { //******EXIT******//
             exit = false;
-            close(socket_id);
             cout << "Goodbye!" << endl;
-            break;
-        } else if (primary == "_s") {
-            /*
-             *  OLD SERVER
-             */
-            //make a new socket for Datagrams over the Internet
-            socket_id = socket(AF_INET, SOCK_DGRAM, 0);
-            if (socket_id < 0) {
-                perror("ERROR opening socket");
-                continue;
-            }
-            //put address in memory
-            memset(&server_address, NOTHING, sizeof(server_address));
-            //set type, address, and port of this server.
-            server_address.sin_family = AF_INET;
-            cout << "Server on " << this_address << endl;
-            server_address.sin_addr.s_addr = inet_addr(this_address.c_str()); //TODO: CHANGE to inet_aton!
-            if (server_address.sin_addr.s_addr == INADDR_NONE) {
-                perror("Invlaid address");
-                continue;
-            }
-            server_address.sin_port = htons(PORT_SERVER);
-            server_addr_len = sizeof(server_address);
-            //bind socket with addresses
-            n = bind(socket_id, (sockaddr *) &server_address, server_addr_len);
-            if (n < 0) {
-                perror("ERROR on binding");
-                continue;
-            }
 
-            cout << "Waiting on connection.\n(send CTRL+Y on client to end)"
-            << endl;
-            bool exiting = false;
-            while (!exiting) {
-                memset(buffer, NOTHING, 256);
-                client_addr_len = sizeof(client_address);
-                n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, &client_addr_len);
-                if (n < 0) {
-                    perror("Error recvfrom");
-                    continue;
-                }
-                printf("Here is the message :%s:\n", buffer);
-                buffer[n] = 0;
-                if (!strcasecmp(buffer, "\x19")) { //CTRL+Y
-                    cout << "Exit received" << endl;
-                    exiting = true;
-                }
-                string message = "echo:";
-                message.copy(buffer, message.length(), 0);
-                n = sendto(socket_id, buffer, sizeof(buffer), 0,
-                           (sockaddr *) &client_address, client_addr_len);
-                if (n < 0) {
-                    perror("Error sendto");
-                    continue;
-                }
-            }
-
-        } else if (primary == "_c") {
-            /*
-             * OLD CLIENT
-             */
-            try {
-                struct hostent *server;
-
-                socket_id = socket(AF_INET, SOCK_DGRAM, 0);
-                if (socket_id < 0) {
-                    perror("ERROR opening socket");
-                    continue;
-                }
-                printf("Socket opened\n");
-                cout << "Enter host to connect to: ";
-                string host;
-                getline(cin, host);
-                server = gethostbyname(host.c_str());
-                if (server == NULL) {
-                    fprintf(stderr, "ERROR, no such host\n");
-                    continue;
-                }
-                printf("Server name => %s\n", server->h_name);
-                memset(&server_address, NOTHING, sizeof(server_address));
-                server_address.sin_family = AF_INET;
-                server_address.sin_addr.s_addr = inet_addr(host.c_str()); //TODO: CHANGE to inet_aton!
-                if (server_address.sin_addr.s_addr == INADDR_NONE) {
-                    perror("Invlaid address");
-                    continue;
-                }
-                server_address.sin_port = htons(PORT_SERVER);
-
-                if (connect(socket_id, (sockaddr *) &server_address,
-                            sizeof(server_address)) < 0) {
-                    perror("ERROR connecting");
-                    continue;
-                }
-
-                memset(buffer, NOTHING, 256);
-                string inbuff = "", trash;
-
-                cout << "Enter message: ";
-                getline(cin, inbuff);
-                inbuff.copy(buffer, inbuff.length());
-                n = send(socket_id, buffer, inbuff.length(), 0);
-                cout << "=|" << buffer << "|=" << endl;
-                if (n < 0) {
-                    perror("ERROR writing to socket");
-                    continue;
-                }
-                memset(buffer, NOTHING, 256);
-
-                n = recv(socket_id, buffer, 255, 0);
-                if (n < 0) {
-                    perror("ERROR reading from socket");
-                    continue;
-                }
-                printf("%s\n", buffer);
-            } catch (...) {
-                cout << "program exited with error" << endl;
-                close(socket_id);
-                return -1;
-            }
         } else if (primary == "c") { //******CLIENT CODE******//
+
+            main_client(this_address, command);
+
+        } else if (primary == "s") { //******SERVER CODE******//
+
+            main_server(this_address, command);
+
+        } else if (primary == "f") { /* FILE COPY TEST */
+            string file_name;
+            if (command.size() < 2) {
+                cout << "Enter file name: ";
+                getline(cin, file_name);
+            } else {
+                file_name = command[1];
+            }
+            FileManager mgr(CLIENT);
+            mgr.FileExists(file_name);
+            mgr.ReadFile(file_name);
+            vector<DataPacket> packet_list;
+            mgr.BreakFile(packet_list);
+            cout << "File broken, putting back together" << endl;
+            mgr.WriteFile("d_" + file_name);
+            mgr.JoinFile(packet_list);
+        } else if (primary == "_c") { /////////////////////////////////////////////// previously client
             string host;
             if (command.size() < 2) {
                 cout << "Enter server address: ";
@@ -222,224 +117,6 @@ int main(int argc, char *argv[]) {
             ackPacket.Send();
             RequestPacket requestPacket(ReqType::Fail, temp_msg, strlen(temp_msg));
             requestPacket.Send();
-
-        } else if (primary == "s") { //******SERVER CODE******//
-            string damage_prob, loss_prob;
-            if (command.size() < 3) {
-                cout << "Enter damage probability: ";
-                getline(cin, damage_prob);
-                cout << "Enter loss probability: ";
-                getline(cin, loss_prob);
-            } else {
-                damage_prob = command[1];
-                damage_prob = command[2];
-            }
-
-            Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-            Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
-            cout << "Success starting server." << endl;
-
-            string temp_type = "not";
-            char *pack_buffer_a = new char[PACKET_SIZE];
-            size_t *size = new size_t;
-            *size = PACKET_SIZE;
-            int loops = 0;
-            StatusResult result;
-            while (true) {
-                FileManager mgr(SERVER);
-                dprintm("Await Returned", Sockets::instance()->AwaitPacket(pack_buffer_a, size, temp_type));
-                cout << "type :" << temp_type << endl;
-                if (temp_type == GREETING) {
-
-                } else if (temp_type == GET_INFO) { // GET FILE INFO
-                    bool file_exists;
-                    RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
-                    req_info.DecodePacket(pack_buffer_a, *size);
-
-
-                    struct stat stat_buff;
-                    string name;
-                    name.insert(0, req_info.Content(), req_info.ContentSize());
-                    file_exists = (stat(name.c_str(), &stat_buff) == 0);
-                    cout << "FILE " << name << " EXISTS ";
-
-                    if (file_exists) {
-                        RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
-                        cerr << "TRUE" << endl;
-                        suc.Send();
-                    } else {
-                        RequestPacket fail(ReqType::Fail, req_info.Content(), req_info.ContentSize());
-                        cerr << "FALSE" << endl;
-                        fail.Send();
-                    }
-
-                    //////
-                    if (file_exists) {
-                        AckPacket ack_file_exists(0);
-                        dprintm("Client ack file exists", result = ack_file_exists.Receive());
-                        if (result == StatusResult::Success) {
-                            string file_name;
-
-                            if (command.size() < 2) {
-                                cout << "Enter file name: ";
-                                getline(cin, file_name);
-                            } else {
-                                file_name = command[1];
-                            }
-
-                            mgr.ReadFile(file_name);
-                            vector<DataPacket> packet_list;
-                            mgr.BreakFile(packet_list);
-                            uint8_t alt_bit = 1;
-
-                            for (DataPacket packet : packet_list) {
-                                if (alt_bit == 1) {
-                                    alt_bit = 0;
-                                } else alt_bit = 1;
-                                packet.Sequence(alt_bit);
-
-                                Send:
-                                packet.Send();
-                                Packet received = Packet();
-                                string type;
-                                StatusResult res = Sockets::instance()->AwaitPacket(&received, type);
-                                uint8_t seq = received.Sequence();
-
-                                if (seq != alt_bit) {
-                                    cout << "Packet Status" << "LOST!" << endl;
-                                    cout << "Sequence number: " << seq << endl;
-                                    cout << "Expected number: " << alt_bit << endl;
-                                }
-
-                                if (type == NO_ACK) {
-                                    goto Send;
-                                } else if (type == ACK) {
-                                    continue;
-                                } else {
-                                    dprint("Something Happened", "")
-                                }
-                            }
-                        }
-                    }
-//                    cout << endl;
-//
-//                    Sockets::instance()->TestRoundTrip(SERVER);
-//                    cout << "end RTT test" << endl;
-//                    cout << endl << " !!! Await starting (you must CTRL+C) !!! " << endl << endl;
-                    if (loops++ >= 30000) {
-                        cout << "bye" << endl;
-                        break;
-
-                    }
-                } //***ELSE IF GET INFO
-            } //***WHILE
-        } else if (primary == "f") { /* FILE COPY TEST */
-            string file_name;
-            if (command.size() < 2) {
-                cout << "Enter file name: ";
-                getline(cin, file_name);
-            } else {
-                file_name = command[1];
-            }
-            FileManager mgr(CLIENT);
-            mgr.FileExists(file_name);
-            mgr.ReadFile(file_name);
-            vector<DataPacket> packet_list;
-            mgr.BreakFile(packet_list);
-            cout << "File broken, putting back together" << endl;
-            mgr.WriteFile("d_" + file_name);
-            mgr.JoinFile(packet_list);
-        } else if (primary == "fc") { ///////////////////////////////////////////////
-            string host, file_name;
-
-            if (command.size() == 1) {
-                cout << "Enter server address: ";
-                getline(cin, host);
-                cout << "Enter file name: ";
-                getline(cin, file_name);
-            } else if (command.size() == 2) {
-                host = command[1];
-                cout << "Enter file name: ";
-                getline(cin, file_name);
-            } else if (command.size() >= 3) {
-                host = command[1];
-                file_name = command[2];
-            }
-
-            Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
-            cout << "Success starting client." << endl;
-            FileManager mgr(CLIENT);
-
-            ///////
-            bool file_exists = false;
-            RequestPacket req_send(ReqType::Info, &file_name[0], file_name.length());
-            StatusResult res;
-            dprintm("Sending filename to server", res = req_send.Send())
-            fwrite(req_send.Content(), req_send.ContentSize(), 1, stdout);
-            cout << endl;
-
-
-            string type;
-            char *pack_buffer_a = new char[PACKET_SIZE];
-            size_t *size = new size_t;
-            *size = PACKET_SIZE;
-            res = Sockets::instance()->AwaitPacket(pack_buffer_a, size, type);
-            if (type == ACK) {
-                AckPacket a(0);
-                dprintm("ack pack", a.DecodePacket(pack_buffer_a, *size))
-                cerr << "GET FILE SUCCESS" << endl;
-                file_exists = true;
-            } else if (type == GET_FAIL && res == StatusResult::Success) {
-                RequestPacket a(ReqType::Fail, NO_CONTENT, 1);
-                dprintm("ack pack", a.DecodePacket(pack_buffer_a, *size))
-                cerr << "GET FILE FAILED" << endl;
-                file_exists = false;
-            } else {
-                dprintm("Response from server get info - error", res)
-            }
-
-            ///////
-
-            if (!file_exists) {
-                cout << "File " << file_name << " does not exist on server." << endl;
-                continue;
-            }
-
-            uint8_t alt_bit = 1;
-            vector<DataPacket> packet_list;
-
-            while (true) {
-                if (alt_bit == 1) {
-                    alt_bit = 0;
-                } else alt_bit = 1;
-
-                Receive:
-                DataPacket received;
-                StatusResult res = received.Receive();
-
-                if (received.Content()) { // BREAK ON THIS
-                    break;
-                }
-
-                uint8_t seq = received.Sequence();
-
-                if (res == StatusResult::Success) {
-                    packet_list.push_back(received);
-                    AckPacket packet = AckPacket(seq);
-                    packet.Send();
-                } else if (res == StatusResult::ChecksumDoesNotMatch) {
-                    NakPacket packet = NakPacket(seq);
-                    packet.Send();
-                    cout << "Packet has errors!\n" << "Sequence Number: " << seq << endl;
-                } else {
-                    dprintm("Status Result", res)
-                    goto Receive;
-                }
-            }
-
-            mgr.WriteFile("d_" + file_name);
-            mgr.JoinFile(packet_list);
-
         } else if (primary == "fs") { ////////////////////////////////////
             string damage_prob, loss_prob;
 
@@ -454,7 +131,7 @@ int main(int argc, char *argv[]) {
             }
 
             Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-            Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
+            Sockets::instance()->OpenServer(this_address, PORT_SERVER, PORT_CLIENT);
             cout << "Success starting server." << endl;
 
             string file_name;
@@ -479,7 +156,7 @@ int main(int argc, char *argv[]) {
                 packet.Send();
                 Packet received = Packet();
                 string type;
-                StatusResult res = Sockets::instance()->AwaitPacket(&received, type);
+                res = Sockets::instance()->AwaitPacket(&received, type);
                 uint8_t seq = received.Sequence();
 
                 if (seq != alt_bit) {
@@ -496,12 +173,10 @@ int main(int argc, char *argv[]) {
                     dprint("Something Happened", "")
                 }
             }
-
-
-        } else {
+        } else { //******NO COMMAND******//
             continue;
         }
-    }
+    } //***END MAIN WHILE
     return 0;
 }
 

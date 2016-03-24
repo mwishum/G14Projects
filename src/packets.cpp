@@ -176,7 +176,6 @@ void Packet::ConvertFromBuffer() {
 
     type_string = buf_pack_type;
     content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
-    content = new char[content_length];
     strcpy(content, data);
     this->sequence_num = *seq_num;
 }

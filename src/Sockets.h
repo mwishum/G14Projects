@@ -35,7 +35,7 @@ public:
     Sockets();
     StatusResult BindAddresses(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
     virtual ~Sockets();
-    StatusResult OpenServer(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
+    StatusResult OpenServer(string address_from, uint16_t port_from, uint16_t port_to);
     StatusResult OpenClient(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
     void Close();
     StatusResult Receive(char *buffer, size_t *bufflen);
