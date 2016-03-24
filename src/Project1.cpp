@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         struct sockaddr_in server_address, client_address;
         ssize_t n;
         string primary;
-        if(command.empty()) {
+        if (command.empty()) {
             primary = " ";
         } else {
             primary = command[0];
@@ -119,8 +119,7 @@ int main(int argc, char *argv[]) {
             while (!exiting) {
                 memset(buffer, NOTHING, 256);
                 client_addr_len = sizeof(client_address);
-                n = recvfrom(socket_id, buffer, sizeof(buffer), 0,
-                             (sockaddr *) &client_address, &client_addr_len);
+                n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, &client_addr_len);
                 if (n < 0) {
                     perror("Error recvfrom");
                     continue;
@@ -288,7 +287,7 @@ int main(int argc, char *argv[]) {
                 } else alt_bit = 1;
 
                 Receive:
-                DataPacket received = DataPacket();
+                DataPacket received;
                 StatusResult res = received.Receive();
 
                 if (received.Content()) { // BREAK ON THIS
