@@ -75,9 +75,9 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else dprintm("receive server file status error", result)
                 if (p_type == GET_SUCCESS) {
                     cout << "Get success, file transmission in progress" << endl;
-                    cout << "\n\nRTT Test\n";
-                    Sockets::instance()->TestRoundTrip(CLIENT);
-                    cout << "\nEnd RTT Test\n\n";
+//                    cout << "\n\nRTT Test\n";
+//                    Sockets::instance()->TestRoundTrip(CLIENT);
+//                    cout << "\nEnd RTT Test\n\n";
                     break; //File exists
                 }
                 if (p_type == GET_FAIL) {
@@ -95,10 +95,12 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else alt_bit = 1;
 
                 receive_more:
+                cout << endl;
                 DataPacket dataPacket;
+                dataPacket.Sequence(alt_bit);
                 result = dataPacket.Receive();
 
-                if (dataPacket.Content() == "") { // BREAK ON THIS
+                if (dataPacket.ContentSize() == 1) { // BREAK ON THIS
                     if (loops++ >= MAX_LOOPS) {
                         cout << "OUT OF LOOPS" << endl;
                         break;
@@ -106,16 +108,23 @@ inline bool main_client(string this_address, vector<string> &command) {
                     break;
                 }
 
-                uint8_t seq = dataPacket.Sequence();
+                dprintm("Status Result (CLIENT)", result);
 
                 if (result == StatusResult::Success) {
                     packet_list.push_back(dataPacket);
-                    AckPacket packet = AckPacket(seq);
+                    AckPacket packet = AckPacket(alt_bit);
                     packet.Send();
+                    continue;
                 } else if (result == StatusResult::ChecksumDoesNotMatch) {
-                    NakPacket packet = NakPacket(seq);
+                    NakPacket packet = NakPacket(alt_bit);
                     packet.Send();
-                    cout << "Packet has errors! - Sequence Number: " << seq << endl;
+                    cout << "Packet has errors! - Sequence Number: " << alt_bit << endl;
+                    goto receive_more;
+                } else if (result == StatusResult::OutOfSequence) {
+                    NakPacket packet = NakPacket(alt_bit);
+                    packet.Send();
+                    cout << "Packet has errors! - Sequence Number: " << alt_bit << endl;
+                    goto receive_more;
                 } else {
                     dprintm("Status Result", result)
                     if (loops++ >= MAX_LOOPS) {

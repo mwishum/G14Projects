@@ -10,7 +10,7 @@
 #include "Sockets.h"
 #include "Gremlin.h"
 
-Packet::Packet()  :
+Packet::Packet() :
         content(NULL), content_length(1), packet_size(0), checksum(0), sequence_num(
         0), type_string("X") {
     content = new char[1];

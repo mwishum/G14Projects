@@ -156,7 +156,8 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
     *bufflen = res; /*Return length via pointer*/
     if (DEBUG) {
         cout << "recvd packet [begin]";
-        fwrite(buffer, *bufflen, 1, stdout);
+        //fwrite(buffer, *bufflen, 1, stdout);
+        dprint("buff len", *bufflen)
         cout << " " << "[end]" << endl;
     } /*DEBUG*/
     return StatusResult::Success;
@@ -214,7 +215,8 @@ StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
     socklen_t length = sizeof(client_sock_addr);
     if (DEBUG) {
         cout << "sent packet [begin]";
-        fwrite(buffer, *bufflen, 1, stdout);
+        //fwrite(buffer, *bufflen, 1, stdout);
+        dprint("buff len", *bufflen)
         cout << " " << "[end]" << endl;
     }/*DEBUG*/
     ssize_t res = sendto(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, length);
@@ -301,15 +303,19 @@ int Sockets::TestRoundTrip(int side) {
             start_time = chrono::steady_clock::now();
         }
     }
+    if (side == CLIENT) {
+        RTTPacket last_one(ReqType::RTTServer, NO_CONTENT, 1);
+        dprintm("Getting the the last one", res = last_one.Receive())
+    }
     int average = 0, r_total = 0;
     for (int i = 0; i < 5; i++)
         r_total += trip_times[i];
     average = r_total / 5;
-    rtt_determined.tv_usec = average*2;
+    rtt_determined.tv_usec = average * 2;
     rtt_determined.tv_sec = 0;
     dprint("Average RTT", average)
     use_manual_timeout = false;
-    ResetTimeout(0,0);
+    ResetTimeout(0, 0);
     return average;
 }
 
@@ -394,7 +400,8 @@ StatusResult Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &ty
     memcpy(temp->packet_buffer, packet_buf, *buff_len);
     *buff_len = *buff_len;
     temp->ConvertFromBuffer();
-    type = temp->type_string;
+    type.clear();
+    type.insert(0, temp->type_string, 1);
     return StatusResult::Success;
 }
 

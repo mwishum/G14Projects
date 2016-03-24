@@ -82,9 +82,9 @@ inline bool main_server(string this_address, vector<string> &command) {
                 AckPacket ack_file_exists(0);
                 dprintm("Client ack file exists", result = ack_file_exists.Receive());
                 if (result == StatusResult::Success) {
-                    cout << "\n\nRTT Test\n";
-                    Sockets::instance()->TestRoundTrip(SERVER);
-                    cout << "\nEnd RTT Test\n\n";
+//                    cout << "\n\nRTT Test\n";
+//                    Sockets::instance()->TestRoundTrip(SERVER);
+//                    cout << "\nEnd RTT Test\n\n";
 
                     mgr.ReadFile(file_name_from_client);
                     vector<DataPacket> packet_list;
@@ -95,29 +95,57 @@ inline bool main_server(string this_address, vector<string> &command) {
                         if (alt_bit == 1) {
                             alt_bit = 0;
                         } else alt_bit = 1;
-                        packet.Sequence(alt_bit);
 
-                        Send:
-                        packet.Send();
-                        Packet received = Packet();
-                        string type;
-                        result = Sockets::instance()->AwaitPacket(&received, type);
-                        uint8_t seq = received.Sequence();
-
-                        if (seq != alt_bit) {
-                            cout << "Packet Status: Lost " << endl;
-                            cout << "Sequence number: " << (int) seq << endl;
-                            cout << "Expected number: " << (int) alt_bit << endl;
+                        // temp
+                        if (packet.ContentSize() == 1) {
+                            cout << "\nLAST PACKET!" << endl;
                         }
 
-                        if (type == NO_ACK) {
-                            goto Send;
-                        } else if (type == ACK) {
+                        send_again:
+                        cout << endl;
+                        packet.Sequence(alt_bit);
+                        packet.Send();
+
+                        dprintm("server await returned",
+                                result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
+
+
+                        cout << "TYPE:::::::::::::::::::::::: " << packet_type << endl;
+
+                        if (packet_type == NO_ACK) {
+                            NakPacket nakPacket(0);
+                            nakPacket.DecodePacket(pack_buffer_a, size);
+                            int seq = nakPacket.Sequence();
+
+                            if (seq != alt_bit) {
+                                cout << "Packet Status: Lost (NAK)" << endl;
+                                cout << "Sequence number: " << seq << endl;
+                                cout << "Expected number: " << (int) alt_bit << endl;
+                            }
+
+                            goto send_again;
+                        } else if (packet_type == ACK) {
+                            AckPacket ackPacket(0);
+                            ackPacket.DecodePacket(pack_buffer_a, size);
+                            int seq = ackPacket.Sequence();
+
+                            if (seq != alt_bit) {
+                                cout << "Packet Status: Lost (ACK)" << endl;
+                                cout << "Sequence number: " << seq << endl;
+                                cout << "Expected number: " << (int) alt_bit << endl;
+
+                                goto send_again;
+                            }
+
                             continue;
+                        } else if (result == StatusResult::Timeout) {
+                            goto send_again;
                         } else {
-                            dprint("Something Happened", "")
+                            dprintm("Something Happened", result);
                         }
                     }
+
+                    cout << "Finished file transmission." << endl;
                 }
             }
             //Sockets::instance()->TestRoundTrip(SERVER);
@@ -157,7 +185,7 @@ inline void proof_server(string this_address) {
     cout << "Server on " << this_address << endl;
     server_address.sin_addr.s_addr = inet_addr(this_address.c_str()); //TODO: CHANGE to inet_aton!
     if (server_address.sin_addr.s_addr == INADDR_NONE) {
-        perror("Invlaid address");
+        perror("Invalid address");
         //continue;
     }
     server_address.sin_port = htons(PORT_SERVER);
