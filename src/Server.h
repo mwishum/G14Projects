@@ -13,6 +13,7 @@
 #include "project.h"
 #include "Sockets.h"
 #include "FileManager.h"
+#include "Gremlin.h"
 
 using namespace std;
 
