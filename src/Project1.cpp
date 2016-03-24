@@ -445,13 +445,10 @@ int main(int argc, char *argv[]) {
             cout << "Success starting server." << endl;
 
             string file_name;
-
-            if (command.size() < 2) {
-                cout << "Enter file name: ";
-                getline(cin, file_name);
-            } else {
-                file_name = command[1];
-            }
+            Packet first_packet = Packet();
+            string type;
+            StatusResult res = Sockets::instance()->AwaitPacket(&first_packet, type);
+            file_name = first_packet.Content();
 
             FileManager mgr(SERVER);
             mgr.ReadFile(file_name);
