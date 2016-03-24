@@ -93,9 +93,9 @@ inline bool main_server(string this_address, vector<string> &command) {
                         uint8_t seq = received.Sequence();
 
                         if (seq != alt_bit) {
-                            cout << "Packet Status" << "LOST!" << endl;
-                            cout << "Sequence number: " << seq << endl;
-                            cout << "Expected number: " << alt_bit << endl;
+                            cout << "Packet Status: Lost "  << endl;
+                            cout << "Sequence number: " << (int) seq << endl;
+                            cout << "Expected number: " << (int) alt_bit << endl;
                         }
 
                         if (type == NO_ACK) {
