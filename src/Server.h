@@ -93,7 +93,9 @@ inline bool main_server(string this_address, vector<string> &command) {
                     mgr.BreakFile(packet_list);
                     uint8_t alt_bit = 1;
 
-                    for (DataPacket packet : packet_list) {
+                    for (int i = 0; i < packet_list.size(); i++) {
+                        DataPacket packet = packet_list[i];
+
                         if (alt_bit == 1) {
                             alt_bit = 0;
                         } else alt_bit = 1;

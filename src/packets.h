@@ -37,7 +37,7 @@ public:
     virtual StatusResult DecodePacket();
     virtual StatusResult DecodePacket(char *packet_buffer, size_t buf_length);
     virtual void ConvertFromBuffer();
-    virtual uint16_t Checksum() final;
+    virtual uint16_t Checksum();
     virtual void Finalize();
     virtual StatusResult Send();
     virtual StatusResult Receive();
