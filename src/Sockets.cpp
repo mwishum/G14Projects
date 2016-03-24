@@ -305,10 +305,11 @@ int Sockets::TestRoundTrip(int side) {
     for (int i = 0; i < 5; i++)
         r_total += trip_times[i];
     average = r_total / 5;
-    rtt_determined.tv_usec = average;
+    rtt_determined.tv_usec = average*2;
     rtt_determined.tv_sec = 0;
     dprint("Average RTT", average)
     use_manual_timeout = false;
+    ResetTimeout(0,0);
     return average;
 }
 
