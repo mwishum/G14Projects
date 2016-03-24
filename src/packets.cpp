@@ -10,14 +10,18 @@
 #include "Sockets.h"
 #include "Gremlin.h"
 
-Packet::Packet() :
-        Packet(NO_CONTENT, 1) {
+Packet::Packet()  :
+        content(NULL), content_length(1), packet_size(0), checksum(0), sequence_num(
+        0), type_string("X") {
+    content = new char[1];
+    //memcpy(content, NO_CONTENT, 1);
+    memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
 
 Packet::Packet(char *data, size_t data_len) :
         content(NULL), content_length(data_len), packet_size(0), checksum(0), sequence_num(
         0), type_string("X") {
-    content = new char[data_len];
+    content = new char[data_len + 1];
     memcpy(content, data, data_len);
     memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
@@ -200,8 +204,8 @@ NakPacket::NakPacket(uint8_t seq) :
     Sequence(seq);
 }
 
-RequestPacket::RequestPacket(ReqType type, char *data) :
-        DataPacket(data, strlen(data)) {
+RequestPacket::RequestPacket(ReqType type, char *data, size_t data_len) :
+        DataPacket(data, data_len) {
     switch (type) {
         case ReqType::Fail:
             type_string = GET_FAIL;
@@ -217,8 +221,8 @@ RequestPacket::RequestPacket(ReqType type, char *data) :
     }
 }
 
-RTTPacket::RTTPacket(ReqType type, char *data) :
-        DataPacket(data, strlen(data)) {
+RTTPacket::RTTPacket(ReqType type, char *data, size_t data_len) :
+        DataPacket(data, data_len) {
     if (type == ReqType::RTTClient) {
         type_string = RTT_TEST_CLIENT;
     } else {
@@ -227,7 +231,12 @@ RTTPacket::RTTPacket(ReqType type, char *data) :
 }
 
 RTTPacket::RTTPacket(ReqType type) :
-        RTTPacket(type, NO_CONTENT) {
+        DataPacket(NO_CONTENT, 1) {
+    if (type == ReqType::RTTClient) {
+        type_string = RTT_TEST_CLIENT;
+    } else {
+        type_string = RTT_TEST_SERVER;
+    }
 }
 
 

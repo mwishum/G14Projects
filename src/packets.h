@@ -89,12 +89,12 @@ public:
 
 class RequestPacket : public DataPacket {
 public:
-    RequestPacket(ReqType type, char *data);
+    RequestPacket(ReqType type, char *data, size_t data_len);
 };
 
 class RTTPacket : public DataPacket {
 public:
-    RTTPacket(ReqType type, char *data);
+    RTTPacket(ReqType type, char *data, size_t data_len);
     RTTPacket(ReqType type);
 };
 

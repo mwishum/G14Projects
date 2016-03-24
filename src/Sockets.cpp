@@ -242,8 +242,8 @@ int Sockets::TestRoundTrip(int side) {
     chrono::steady_clock::time_point start_time, end_time;
     if (side == CLIENT) {
         dprint("RTTT side", "client")
-        RTTPacket client_send(ReqType::RTTClient, dat);
-        RTTPacket server_resp(ReqType::RTTServer, dat);
+        RTTPacket client_send(ReqType::RTTClient, dat, strlen(dat));
+        RTTPacket server_resp(ReqType::RTTServer, dat, strlen(dat));
         dprintm("[c] to server", client_send.Send())
         dprintm("[c] rcv server", res = server_resp.Receive())
         if (res == StatusResult::Timeout) {
@@ -277,12 +277,12 @@ int Sockets::TestRoundTrip(int side) {
         char p_content[2];
         sprintf(p_content, "%d", trips);
         ReqType type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
-        RTTPacket init((side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient, p_content);
+        RTTPacket init((side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient, p_content, strlen(p_content));
         if (trips == 4) {
             dprintm("[li] send", init.Send())
             start_time = chrono::steady_clock::now();
         }
-        RTTPacket in(type_send, p_content);
+        RTTPacket in(type_send, p_content, strlen(p_content));
         dprintm("[l] rcv", res = in.Receive())
         if (res == StatusResult::Timeout) { /*Select timed out*/
             perror("SELECT timeout");
@@ -292,7 +292,7 @@ int Sockets::TestRoundTrip(int side) {
             chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
             trip_times[trips] = span.count();
             type_send = (side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient;
-            RTTPacket out(type_send, p_content); /*Send opposite type of packet to other side*/
+            RTTPacket out(type_send, p_content, strlen(p_content)); /*Send opposite type of packet to other side*/
             dprintm("[l] send", out.Send())
             start_time = chrono::steady_clock::now();
         }
@@ -346,15 +346,15 @@ StatusResult Sockets::AwaitPacket(class Packet *packet, string &type) {
             type = NO_ACK;
             return packet->DecodePacket(buffer, length);
         case 'G': //GET_INFO
-            packet = new RequestPacket(ReqType::Info, temp->content);
+            packet = new RequestPacket(ReqType::Info, temp->content, strlen(temp->content));
             type = GET_INFO;
             return packet->DecodePacket(buffer, length);
         case 'F': //GET_FAIL
-            packet = new RequestPacket(ReqType::Fail, temp->content);
+            packet = new RequestPacket(ReqType::Fail, temp->content, strlen(temp->content));
             type = GET_FAIL;
             return packet->DecodePacket(buffer, length);
         case 'S': //GET_SUCCESS
-            packet = new RequestPacket(ReqType::Success, temp->content);
+            packet = new RequestPacket(ReqType::Success, temp->content, strlen(temp->content));
             type = GET_SUCCESS;
             return packet->DecodePacket(buffer, length);
         case 'C': //RTT_TEST_CLIENT
