@@ -259,6 +259,117 @@ int main(int argc, char *argv[]) {
             cout << "File broken, putting back together" << endl;
             mgr.WriteFile("d_" + file_name);
             mgr.JoinFile(packet_list);
+        } else if (command[0] == "fc") {
+            string host;
+
+            if (command.size() < 2) {
+                cout << "Enter server address: ";
+                getline(cin, host);
+            } else host = command[1];
+
+            // ENTER FILE NAME HERE (FILEMANAGER) & SEND PACKET TO SERVER FOR IT
+            string file_name = "test.out";
+
+            Sockets::instance()->OpenClient(this_address, host, PORT_CLIENT, PORT_SERVER);
+            cout << "Success starting client." << endl;
+
+            uint8_t alt_bit = 1;
+            vector<DataPacket> packet_list;
+            FileManager mgr(CLIENT);
+
+            while (true) {
+                if (alt_bit == 1) {
+                    alt_bit = 0;
+                } else alt_bit = 1;
+
+                Receive:
+                DataPacket received = DataPacket();
+                StatusResult res = received.Receive();
+
+                if (received.Content()) { // BREAK ON THIS
+                    break;
+                }
+
+                uint8_t seq = received.Sequence();
+
+                if (res == StatusResult::Success) {
+                    packet_list.push_back(received);
+                    AckPacket packet = AckPacket(seq);
+                    packet.Send();
+                } else if (res == StatusResult::ChecksumDoesNotMatch) {
+                    NakPacket packet = NakPacket(seq);
+                    packet.Send();
+                    cout << "Packet has errors!\n" << "Sequence Number: " << seq << endl;
+                } else {
+                    dprintm("Status Result", res)
+                    goto Receive;
+                }
+            }
+
+            mgr.WriteFile("d_" + file_name);
+            mgr.JoinFile(packet_list);
+
+        } else if (command[0] == "fs") {
+            string damage_prob, loss_prob;
+
+            if (command.size() < 3) {
+                cout << "Enter damage probability: ";
+                getline(cin, damage_prob);
+                cout << "Enter loss probability: ";
+                getline(cin, loss_prob);
+            } else {
+                damage_prob = command[1];
+                damage_prob = command[2];
+            }
+
+            Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
+            Sockets::instance()->OpenServer(this_address, "127.0.0.1", PORT_SERVER, PORT_CLIENT);
+            cout << "Success starting server." << endl;
+
+            string file_name;
+
+            if (command.size() < 2) {
+                cout << "Enter file name: ";
+                getline(cin, file_name);
+            } else {
+                file_name = command[1];
+            }
+
+            FileManager mgr(CLIENT);
+            mgr.ReadFile(file_name);
+            vector<DataPacket> packet_list;
+            mgr.BreakFile(packet_list);
+            uint8_t alt_bit = 1;
+
+            for (DataPacket packet : packet_list) {
+                if (alt_bit == 1) {
+                    alt_bit = 0;
+                } else alt_bit = 1;
+                packet.Sequence(alt_bit);
+
+                Send:
+                packet.Send();
+                Packet received = Packet();
+                string type;
+                StatusResult res = Sockets::instance()->AwaitPacket(&received, type);
+                uint8_t seq = received.Sequence();
+
+                if (seq != alt_bit) {
+                    cout << "Packet Status" << "LOST!" << endl;
+                    cout << "Sequence number: " << seq << endl;
+                    cout << "Expected number: " << alt_bit << endl;
+                }
+
+                if (type == NO_ACK) {
+                    goto Send;
+                } else if (type == ACK) {
+                    continue;
+                } else {
+                    dprint("Something Happened", "")
+                }
+            }
+
+
         } else {
             continue;
         }
