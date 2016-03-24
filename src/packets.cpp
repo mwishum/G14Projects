@@ -107,7 +107,7 @@ void Packet::Finalize() {
     *checksum = 0;
     *seq_num = sequence_num;
 
-    assert(content_length < max_content());
+    assert(content_length <= max_content());
     assert(content != NULL);
 
     strcpy(data, content);

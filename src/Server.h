@@ -56,10 +56,10 @@ inline bool main_server(string this_address, vector<string> &command) {
 
 
             struct stat stat_buff;
-            string name;
-            name.insert(0, req_info.Content(), req_info.ContentSize());
-            file_exists = (stat(name.c_str(), &stat_buff) == 0);
-            cout << "FILE `" << name << "` EXISTS ?";
+            string file_name_from_client;
+            file_name_from_client.insert(0, req_info.Content(), req_info.ContentSize());
+            file_exists = (stat(file_name_from_client.c_str(), &stat_buff) == 0);
+            cout << "FILE `" << file_name_from_client << "` EXISTS ?";
             if (file_exists) {
                 RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
                 cout << " TRUE" << endl;
@@ -69,22 +69,12 @@ inline bool main_server(string this_address, vector<string> &command) {
                 cout << " FALSE" << endl;
                 fail.Send();
             }
-
             //////
             if (file_exists) {
                 AckPacket ack_file_exists(0);
                 dprintm("Client ack file exists", result = ack_file_exists.Receive());
                 if (result == StatusResult::Success) {
-                    string file_name;
-
-                    if (command.size() < 2) {
-                        cout << "Enter file name: ";
-                        getline(cin, file_name);
-                    } else {
-                        file_name = command[1];
-                    }
-
-                    mgr.ReadFile(file_name);
+                    mgr.ReadFile(file_name_from_client);
                     vector<DataPacket> packet_list;
                     mgr.BreakFile(packet_list);
                     uint8_t alt_bit = 1;

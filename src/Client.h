@@ -61,6 +61,7 @@ inline bool main_client(string this_address, vector<string> &command) {
                     next.Send();
                 } else dprintm("receive server file status error", result)
                 if (p_type == GET_SUCCESS) {
+                    cout << "Get success, file transmission in progress" <<endl;
                     break; //File exists
                 }
                 if (p_type == GET_FAIL) {
@@ -94,7 +95,7 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else if (result == StatusResult::ChecksumDoesNotMatch) {
                     NakPacket packet = NakPacket(seq);
                     packet.Send();
-                    cout << "Packet has errors!\n" << "Sequence Number: " << seq << endl;
+                    cout << "Packet has errors! - Sequence Number: " << seq << endl;
                 } else {
                     dprintm("Status Result", result)
                     goto receive_more;

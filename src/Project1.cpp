@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
             cout << "File broken, putting back together" << endl;
             mgr.WriteFile("d_" + file_name);
             mgr.JoinFile(packet_list);
-        } else if (primary == "_c") { /////////////////////////////////////////////// previously client
+        } else if (primary == "_c") { /////////////////////////////previously client
             string host;
             if (command.size() < 2) {
                 cout << "Enter server address: ";
@@ -117,62 +117,6 @@ int main(int argc, char *argv[]) {
             ackPacket.Send();
             RequestPacket requestPacket(ReqType::Fail, temp_msg, strlen(temp_msg));
             requestPacket.Send();
-        } else if (primary == "fs") { ////////////////////////////////////
-            string damage_prob, loss_prob;
-
-            if (command.size() < 3) {
-                cout << "Enter damage probability: ";
-                getline(cin, damage_prob);
-                cout << "Enter loss probability: ";
-                getline(cin, loss_prob);
-            } else {
-                damage_prob = command[1];
-                damage_prob = command[2];
-            }
-
-            Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-            Sockets::instance()->OpenServer(this_address, PORT_SERVER, PORT_CLIENT);
-            cout << "Success starting server." << endl;
-
-            string file_name;
-            Packet first_packet = Packet();
-            string type;
-            StatusResult res = Sockets::instance()->AwaitPacket(&first_packet, type);
-            file_name = first_packet.Content();
-
-            FileManager mgr(SERVER);
-            mgr.ReadFile(file_name);
-            vector<DataPacket> packet_list;
-            mgr.BreakFile(packet_list);
-            uint8_t alt_bit = 1;
-
-            for (DataPacket packet : packet_list) {
-                if (alt_bit == 1) {
-                    alt_bit = 0;
-                } else alt_bit = 1;
-                packet.Sequence(alt_bit);
-
-                Send_fs:
-                packet.Send();
-                Packet received = Packet();
-                string type;
-                res = Sockets::instance()->AwaitPacket(&received, type);
-                uint8_t seq = received.Sequence();
-
-                if (seq != alt_bit) {
-                    cout << "Packet Status" << "LOST!" << endl;
-                    cout << "Sequence number: " << seq << endl;
-                    cout << "Expected number: " << alt_bit << endl;
-                }
-
-                if (type == NO_ACK) {
-                    goto Send_fs;
-                } else if (type == ACK) {
-                    continue;
-                } else {
-                    dprint("Something Happened", "")
-                }
-            }
         } else { //******NO COMMAND******//
             continue;
         }
