@@ -22,13 +22,12 @@ Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use
  * Binds addresses to socket. Far addresses is overwritten after receiving
  * from client
  *
- * @param address_from IP Address of near client in dot format
- * @param address_to IP Address of far client in dot format
- * @param port_from Port integer of near client
- * @param port_to Port integer of far client
+ * @param address_from IP Address of near(THIS) client in dot format
+ * @param port integer port number to connect with
+ *
  * @return status of binding to socket
  */
-StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_t port_from, uint16_t port_to) {
+StatusResult Sockets::OpenServer(string address_from, uint16_t port) {
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
@@ -48,17 +47,7 @@ StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_
         return StatusResult::CouldNotOpen;
     }
     server_sock_addr.sin_addr = adr;
-    server_sock_addr.sin_port = htons(port_to);
-
-//    memset(&client_sock_addr, NOTHING, sizeof(client_sock_addr));
-//    client_sock_addr.sin_family = AF_INET;
-//    if (inet_aton(address_to.c_str(), &adr) == 0) {
-//       perror("Invalid from address");
-//      return StatusResult::CouldNotOpen;
-//    }
-//    client_sock_addr.sin_addr = adr;
-//    client_sock_addr.sin_port = htons(port_to);
-//    client_size = sizeof(client_sock_addr);
+    server_sock_addr.sin_port = htons(port);
 
     int res = bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
@@ -73,13 +62,12 @@ StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_
 /**
  * Connects addresses to socket.
  *
- * @param address_from IP Address of near client in dot format
- * @param address_to IP Address of far client in dot format
- * @param port_from Port integer of near client
- * @param port_to Port integer of far client
+ * @param address_to IP Address of far client (Server) in dot format
+ * @param port_to Port integer of far client (Server)
+ *
  * @return status of connecting to socket
  */
-StatusResult Sockets::OpenClient(string address_from, string address_to, uint16_t port_from, uint16_t port_to) {
+StatusResult Sockets::OpenClient(string address_to, uint16_t port_to) {
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
@@ -143,7 +131,6 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
         res = recv(socket_id, buffer, *bufflen, 0);
     } else {//SERVER
         res = recvfrom(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, &client_size);
-        if (&client_sock_addr != NULL) dprint("client sock set", true)
     }
 
     if (res < 0) { /*If error occurred*/
@@ -157,10 +144,7 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
     }
     *bufflen = (size_t) res; /*Return length via pointer*/
     if (DEBUG) {
-        cout << "recvd packet [begin]";
-        //fwrite(buffer, *bufflen, 1, stdout);
-        dprint("buff len", *bufflen)
-        cout << " " << "[end]" << endl;
+        cout << "recvd packet size" <<  *bufflen << endl;
     } /*DEBUG*/
     return StatusResult::Success;
 }
@@ -171,8 +155,8 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
  *
  * @param buffer Packet buffer returned
  * @param bufflen Length of packet expected, actual length returned via
- * @return packet returned by buffer and its size in bufflen.
- * Status of receipt returned
+ *
+ * @return packet returned by buffer and its size in bufflen. Status of receipt returned
  */
 StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
     return ReceiveTimeout(buffer, bufflen, deft_timeout);
@@ -183,9 +167,9 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
  *
  * @param buffer Packet buffer returned
  * @param bufflen Length of packet expected, actual length returned via
- * @param microsec Time to wait before returning
- * @return packet returned by buffer and its size in bufflen.
- * Status of receipt returned
+ * @param timeout Time to wait before returning (sec and mirco sec)
+ *
+ * @return packet returned by buffer and its size in bufflen. Status of receipt returned
  */
 StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout) {
     FD_ZERO (&socks);
@@ -209,6 +193,7 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timev
  *
  * @param buffer Packet buffer to send
  * @param bufflen Buffer length to send
+ *
  * @return Status of sending
  */
 StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
@@ -318,8 +303,13 @@ int Sockets::TestRoundTrip(int side) {
             start_time = TIME_METHOD::now();
         }
     }
-    if (side == CLIENT) {
+    if (side == SERVER) {
         RTTPacket last_one(ReqType::RTTServer, NO_CONTENT, 1);
+        res = last_one.Receive();
+        dprintm("Getting the the last one", res)
+    }
+    if (side == CLIENT) {
+        RTTPacket last_one(ReqType::RTTClient, NO_CONTENT, 1);
         res = last_one.Receive();
         dprintm("Getting the the last one", res)
     }
@@ -327,14 +317,24 @@ int Sockets::TestRoundTrip(int side) {
     for (int i = 0; i < 5; i++)
         r_total += trip_times[i];
     average = r_total / 5;
+
     rtt_determined.tv_usec = average * 2;
     rtt_determined.tv_sec = 0;
     cout << "Round trip time = " << average << "microsec" << endl;
+
     use_manual_timeout = false;
     ResetTimeout(0, 0);
     return average;
 }
 
+/**
+ * Resets the timeout of recv/send calls
+ * Calling this resets the default timeout to the rtt determined one
+ * UNLESS use_manual_timeout is called
+ *
+ * @param sec Seconds of timeout
+ * @param micro_se Microseconds of timeout
+ */
 void Sockets::ResetTimeout(long int sec, long int micro_sec) {
     if (use_manual_timeout) {
         deft_timeout.tv_sec = sec;
@@ -347,7 +347,7 @@ void Sockets::ResetTimeout(long int sec, long int micro_sec) {
 }
 
 /**
- * Blocks until a packet is received or Timeout.
+ * Blocks until a packet is received or Timeout reached.
  *
  * @param *packet_buf raw packet buffer received
  * @param buff_len length of packet buffer

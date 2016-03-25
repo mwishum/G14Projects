@@ -23,7 +23,9 @@
 #define GREETING          "H"
 
 using namespace std;
-
+/**
+ * Type used for RTTPacket and RequestPacket
+ */
 enum class ReqType {
     Info, Fail, Success, RTTClient, RTTServer
 };

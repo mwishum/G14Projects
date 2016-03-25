@@ -49,13 +49,13 @@ int main(int argc, char *argv[]) {
     long sel = strtol(in.c_str(), NULL, 10);
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
-    cout << "(running on " << this_address << ")" << endl;
+    cout << "(running on " << this_address << ")" << endl << endl;
     cout << "=========== Menu ===========" << endl;
     cout << " Exit: e " << endl;
     cout << " Server:  s <dmg%> <loss%>  " << endl;
     cout << " Client:\n  c <address>    " << endl;
     cout << "  get <src file> <out file> " << endl;
-    cout << "===========  --  ===========" << endl;
+    cout << "===========  --  ===========" << endl << endl;
     while (exit) {
         cout << ">";
         getline(cin, in);
@@ -69,34 +69,23 @@ int main(int argc, char *argv[]) {
         } else {
             primary = command[0];
         }
-        if (primary == "e") { //******EXIT******//
+        if (primary == "e") {
+
+            //******EXIT******//
             exit = false;
             cout << "Goodbye!" << endl;
+        } else if (primary == "c") {
 
-        } else if (primary == "c") { //******CLIENT CODE******//
-
+            //******CLIENT CODE******//
             main_client(this_address, command);
 
-        } else if (primary == "s") { //******SERVER CODE******//
+        } else if (primary == "s") {
 
+            //******SERVER CODE******//
             main_server(this_address, command);
 
-        } else if (primary == "f") { /* FILE COPY TEST */
-            string file_name;
-            if (command.size() < 2) {
-                cout << "Enter file name: ";
-                getline(cin, file_name);
-            } else {
-                file_name = command[1];
-            }
-            FileManager mgr(CLIENT);
-            mgr.ReadFile(file_name);
-            vector<DataPacket> packet_list;
-            mgr.BreakFile(packet_list);
-            cout << "File broken, putting back together" << endl;
-            mgr.WriteFile("d_" + file_name);
-            mgr.JoinFile(packet_list);
-        }  else { //******NO COMMAND******//
+        } else {
+            //******NO COMMAND******//
             continue;
         }
     } //***END MAIN WHILE

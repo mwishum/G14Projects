@@ -23,7 +23,7 @@ inline bool main_server(string this_address, vector<string> &command) {
     string packet_type;
     char *pack_buffer_a = new char[PACKET_SIZE];
     size_t size;
-    //int loops = 0;
+    int loops = 0;
 
     //Decode command
     if (command.size() < 3) {
@@ -37,7 +37,7 @@ inline bool main_server(string this_address, vector<string> &command) {
     }
 
     Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-    result = Sockets::instance()->OpenServer(this_address, "", PORT_CLIENT, PORT_CLIENT);
+    result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
     if (result != StatusResult::Success) {
         cerr << "Could not start server." << endl;
         return true;
@@ -50,11 +50,8 @@ inline bool main_server(string this_address, vector<string> &command) {
     while (true) {
         size = PACKET_SIZE;
         result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
-        dprintm("server await returned", result);
-//        if (loops++ >= MAX_LOOPS) {
-//            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
-//            break;
-//        }
+        //  dprintm("server await returned", result);
+
         if (result != StatusResult::Success) continue;
         dprint("Packet type", packet_type)
         if (packet_type == GREETING) {
@@ -64,15 +61,18 @@ inline bool main_server(string this_address, vector<string> &command) {
             hello.Send();
         } else if (packet_type == GET_INFO) { // GET FILE INFO
             bool file_exists;
+            //Get File Exists Request
             RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
             req_info.DecodePacket(pack_buffer_a, size);
 
+            //Check actual file exists
             struct stat stat_buff;
             string file_name_from_client;
             file_name_from_client.insert(0, req_info.Content(), req_info.ContentSize());
             file_exists = (stat(file_name_from_client.c_str(), &stat_buff) == 0);
             cout << "FILE `" << file_name_from_client << "` EXISTS ?";
 
+            //Send status of file (Success or Fail)
             send_file_ack_again:
             if (file_exists) {
                 RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
@@ -83,82 +83,87 @@ inline bool main_server(string this_address, vector<string> &command) {
                 cout << " FALSE" << endl;
                 fail.Send();
             }
-            //////
-            if (file_exists) {
-                AckPacket ack_file_exists(0);
-                result = ack_file_exists.Receive();
-                dprintm("Client ack file exists", result);
-                if (result == StatusResult::Success) {
 
-                    Sockets::instance()->TestRoundTrip(SERVER);
+            //Make sure client ack the file status
+            AckPacket ack_file_exists(0);
+            result = ack_file_exists.Receive();
+            dprintm("Client ack file exists", result);
+            if (result == StatusResult::Success) {
+                //Back to loop if file doesnt exist.
+                if(!file_exists) continue;
 
-                    mgr.ReadFile(file_name_from_client);
-                    vector<DataPacket> packet_list;
-                    mgr.BreakFile(packet_list);
-                    uint8_t alt_bit = 1;
+                //If file exists and in sync with client, check RTT
+                Sockets::instance()->TestRoundTrip(SERVER);
 
-                    for (int i = 0; i < packet_list.size(); i++) {
-                        DataPacket packet = packet_list[i];
+                mgr.ReadFile(file_name_from_client);
+                vector<DataPacket> packet_list;
+                mgr.BreakFile(packet_list);
+                uint8_t alt_bit = 1;
 
-                        if (alt_bit == 1) {
-                            alt_bit = 0;
-                        } else alt_bit = 1;
+                for (int i = 0; i < packet_list.size(); i++) {
+                    DataPacket packet = packet_list[i];
 
-                        send_again:
+                    if (alt_bit == 1) {
+                        alt_bit = 0;
+                    } else alt_bit = 1;
 
-                        packet.Sequence(alt_bit);
-                        packet.Send();
+                    send_again:
 
-                        //Wait for response from server
-                        result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
-                        dprintm("server await returned", result)
+                    packet.Sequence(alt_bit);
+                    packet.Send();
 
-                        if (packet_type == NO_ACK) {
-                            NakPacket nakPacket(0);
-                            nakPacket.DecodePacket(pack_buffer_a, size);
-                            int seq = nakPacket.Sequence();
+                    //Wait for response from server
+                    result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
+                    //dprintm("server await returned", result)
 
-                            if (seq != alt_bit) {
-                                cout << "Packet Status: Lost (NAK)" << endl;
-                                cout << "Sequence number: " << seq << endl;
-                                cout << "Expected number: " << (int) alt_bit << endl;
-                            }
+                    if (packet_type == NO_ACK) {
+                        NakPacket nakPacket(0);
+                        nakPacket.DecodePacket(pack_buffer_a, size);
+                        int seq = nakPacket.Sequence();
 
-                            goto send_again;
-                        } else if (packet_type == ACK) {
-                            AckPacket ackPacket(0);
-                            ackPacket.DecodePacket(pack_buffer_a, size);
-                            int seq = ackPacket.Sequence();
-
-                            if (seq != alt_bit) {
-                                cout << "Packet Status: Lost/Tampered (ACK)" << endl;
-                                cout << "Sequence number: " << seq << endl;
-                                cout << "Expected number: " << (int) alt_bit << endl;
-
-                                goto send_again;
-                            }
-
-                            continue;
-                        } else if (result == StatusResult::Timeout) {
-                            goto send_again;
-                        } else if (packet_type == GET_SUCCESS) {
-                            break;
-                        } else {
-                            dprintm("Something Happened", result);
+                        if (seq != alt_bit) {
+                            cout << "Packet Status: Lost (NAK)" << endl;
+                            cout << "Sequence number: " << seq << endl;
+                            cout << "Expected number: " << (int) alt_bit << endl;
                         }
+
+                        goto send_again;
+                    } else if (packet_type == ACK) {
+                        AckPacket ackPacket(0);
+                        ackPacket.DecodePacket(pack_buffer_a, size);
+                        int seq = ackPacket.Sequence();
+
+                        if (seq != alt_bit) {
+                            cout << "Packet Status: Lost/Tampered (ACK)" << endl;
+                            cout << "Sequence number: " << seq << endl;
+                            cout << "Expected number: " << (int) alt_bit << endl;
+                            goto send_again;
+                        }
+
+                        continue;
+                    } else if (result == StatusResult::Timeout) {
+                        goto send_again;
+                    } else if (packet_type == GET_SUCCESS) {
+                        break;
+                    } else {
+                        cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
+                        goto send_again;
                     }
-                    cout << "Finished file transmission successfully." << endl;
-                } else if (result == StatusResult::Timeout) {
-                    goto send_file_ack_again;
-                }
+                } //END PACKET LOOP
+                cout << "Finished file transmission successfully." << endl;
+            } //**RESULT == SUCCESS
+            else { // NOT SUCCESS
+                cout << "Sending File status Again" << endl;
+                goto send_file_ack_again;
             }
+
         } //***ELSE IF GET INFO
         else {
         }
-//        if (loops++ >= MAX_LOOPS) {
-//            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
-//            break;
-//        }
+        if (loops++ >= MAX_LOOPS) {
+            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
+            break;
+        }
     } //***WHILE
     return true;
 }

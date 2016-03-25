@@ -68,14 +68,13 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 
 #define PORT_CLIENT 10062
 #define PORT_SERVER 10063
-#define PORT_EXTRA  10064
 
 #define NOTHING 0
 #define NO_CONTENT const_cast<char*>("")
 
 #define PACKET_SIZE 256
 
-#define TIMEOUT_SEC 2
+#define TIMEOUT_SEC 1
 #define TIMEOUT_MSEC 0
 
 #define MAX_LOOPS 1000

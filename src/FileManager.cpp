@@ -8,10 +8,22 @@
 
 #include "FileManager.h"
 
+/**
+ * Starts file manager
+ *
+ * @param side Int representing client/server
+ */
 FileManager::FileManager(int side) :
         file_buffer(NULL), man_side(side) {
 }
 
+/**
+ * Opens a file for reading and initializes buffers (SERVER)
+ *
+ * @param path filename/path of file to open for reading.
+ *
+ * @return Status of opening (FatalError if not openable)
+ */
 StatusResult FileManager::ReadFile(const string &path) {
     in_file.open(path, ios::in | ios::binary | ios::ate);
     file_buffer = new char[Packet::max_content()];
@@ -22,6 +34,13 @@ StatusResult FileManager::ReadFile(const string &path) {
     return StatusResult::FatalError;
 }
 
+/**
+ * Opens a file for writing and initializes buffers (CLIENT)
+ *
+ * @param path filename/path of file to open for reading.
+ *
+ * @return Status of opening (FatalError if not openable)
+ */
 StatusResult FileManager::WriteFile(const string &path) {
     out_file.open(path, ios::out | ios::binary);
     file_buffer = new char[Packet::max_content()];
@@ -32,6 +51,14 @@ StatusResult FileManager::WriteFile(const string &path) {
     return StatusResult::FatalError;
 }
 
+/**
+ * Breaks the file specifed in OpenFile into however many packets are needed
+ * to transmit it and returns it.
+ *
+ * @param &packs NON-NULL vector of DataPackets to write to
+ *
+ * @return status of breaking (Success or NotInitialized)
+ */
 StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
     if (in_file == NULL || !in_file.is_open()) {
         cerr << "FILE NOT OPEN/VALID" << endl;
@@ -39,7 +66,7 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
     }
     in_file.seekg(0, ios::end);
     streamoff file_size = in_file.tellg();
-    dprint("file size", file_size)
+    dprint("File Size:", file_size)
     in_file.seekg(0, ios::beg);
     while (in_file.tellg() < file_size) {
         size_t rem = (size_t) file_size - in_file.tellg();
@@ -68,10 +95,18 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);
+    dprint("Total packets created", packs.size())
     packs.push_back(final_packet);
     return StatusResult::Success;
 }
 
+/**
+ * Joins all packets from the vector into a file specified by WriteFile.
+ *
+ * @param &packs NON-NULL vector of DataPackets to read into file
+ *
+ * @return status of joining (Success or NotInitialized)
+ */
 StatusResult FileManager::JoinFile(vector<DataPacket> &packs) {
     if (out_file == NULL || !out_file.is_open() || packs.size() < 1) {
         cerr << "FILE NOT OPEN/VALID/NO PACKETS" << endl;
@@ -85,7 +120,9 @@ StatusResult FileManager::JoinFile(vector<DataPacket> &packs) {
     out_file.close();
     return StatusResult::Success;
 }
-
+/**
+ * Closes streams (if open)
+ */
 FileManager::~FileManager() {
     delete[] file_buffer;
     if (in_file.is_open())

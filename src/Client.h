@@ -27,7 +27,7 @@ inline bool main_client(string this_address, vector<string> &command) {
     } else {
         remote_server_a = command[1];
     }
-    result = Sockets::instance()->OpenClient(this_address, remote_server_a, PORT_CLIENT, PORT_CLIENT);
+    result = Sockets::instance()->OpenClient(remote_server_a, PORT_CLIENT);
     FileManager mgr(CLIENT);
     if (result != StatusResult::Success) {
         cerr << "Could not start Client." << endl;
@@ -74,7 +74,7 @@ inline bool main_client(string this_address, vector<string> &command) {
             RequestPacket *req_send = new RequestPacket(ReqType::Info, &file_name[0], file_name.size());
             result = req_send->Send();
             dprintm("Sending filename to server", result)
-            fwrite(req_send->Content(), req_send->ContentSize(), 1, stdout);
+            //fwrite(req_send->Content(), req_send->ContentSize(), 1, stdout);
 
             string p_type;
             while (true) {
@@ -82,16 +82,14 @@ inline bool main_client(string this_address, vector<string> &command) {
                 if (result == StatusResult::Success) {
                     AckPacket next(0);
                     next.Send();
-                } else dprintm("receive server file status error", result)
+                } else cout << "Error communicating with server: " << StatusMessage[(int) result] << endl;
                 if (p_type == GET_SUCCESS) {
                     cout << "Get success, file transmission in progress" << endl;
-
                     Sockets::instance()->TestRoundTrip(CLIENT);
                     break; //File exists
-                }
-                if (p_type == GET_FAIL) {
+                } else if (p_type == GET_FAIL) {
                     cout << "File `" << file_name << "` does not exist on server." << endl;
-                    goto client;//continue to client menu loop
+                    goto client; //continue to client menu loop
                 }
             }
 
@@ -104,10 +102,10 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else alt_bit = 1;
 
                 receive_more:
-                if (loops++ >= MAX_LOOPS) {
-                    cerr << "Client ran too long." << endl;
-                    break;
-                }
+//                if (loops++ >= MAX_LOOPS) {
+//                    cerr << "Client ran too long." << endl;
+//                    break;
+//                }
 
                 DataPacket dataPacket;
                 dataPacket.Sequence(alt_bit);
@@ -154,10 +152,10 @@ inline bool main_client(string this_address, vector<string> &command) {
             cout << "[client closed]" << endl;
             return true; //Back to main program loop
         } else {
-            if (loops++ >= MAX_LOOPS) {
-                cerr << "Client ran too long." << endl;
-                break;
-            }
+//            if (loops++ >= MAX_LOOPS) {
+//                cerr << "Client ran too long." << endl;
+//                break;
+//            }
             continue; //Continue client menu loop
         }
     }
