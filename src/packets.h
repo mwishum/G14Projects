@@ -96,6 +96,10 @@ class RTTPacket : public DataPacket {
 public:
     RTTPacket(ReqType type, char *data, size_t data_len);
     RTTPacket(ReqType type);
+    StatusResult Send() {
+        Finalize();
+        return _send_to_socket();
+    }
 };
 
 class GreetingPacket : public DataPacket {

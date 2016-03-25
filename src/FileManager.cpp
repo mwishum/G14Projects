@@ -51,20 +51,20 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
             in_file.read(file_buffer, rem);
             packs.push_back(DataPacket(file_buffer, rem));
             dprint("pack #", packs.size())
-            char temp[rem + 1];
-            temp[rem] = '\0';
-            memcpy(temp, file_buffer, rem);
-            dprint("data", temp)
+            //char temp[rem + 1];
+            //temp[rem] = '\0';
+            //memcpy(temp, file_buffer, rem);
+            //dprint("data", temp)
             break;
         }
 
         in_file.read(file_buffer, Packet::max_content());
         packs.push_back(DataPacket(file_buffer, Packet::max_content()));
-        char temp[Packet::max_content() + 1];
-        temp[Packet::max_content()] = '\0';
-        memcpy(temp, file_buffer, Packet::max_content());
+        //char temp[Packet::max_content() + 1];
+        //temp[Packet::max_content()] = '\0';
+        //memcpy(temp, file_buffer, Packet::max_content());
         dprint("pack #", packs.size())
-        dprint("data", temp)
+        //dprint("data", temp)
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);
@@ -93,15 +93,4 @@ FileManager::~FileManager() {
     if (out_file.is_open())
         out_file.close();
 }
-
-bool FileManager::FileExists(const string &name) {
-    dprint("file exists?", name)
-    if (man_side == CLIENT) {
-
-    }
-    if (man_side == SERVER) {
-
-    }
-}
-
 

@@ -23,9 +23,9 @@ class Sockets {
     static Sockets *manager;
     int socket_id;
     int side;
-    bool use_manual_timeout;
     struct sockaddr_in server_sock_addr;
     struct sockaddr_in client_sock_addr;
+    socklen_t client_size;
     bool socket_ready;
     bool initialized;
     fd_set socks;
@@ -35,14 +35,13 @@ public:
     Sockets();
     StatusResult BindAddresses(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
     virtual ~Sockets();
-    StatusResult OpenServer(string address_from, uint16_t port_from, uint16_t port_to);
+    StatusResult OpenServer(string address_from, string address_to,  uint16_t port_from, uint16_t port_to);
     StatusResult OpenClient(string address_from, string address_to, uint16_t port_from, uint16_t port_to);
     void Close();
     StatusResult Receive(char *buffer, size_t *bufflen);
     StatusResult ReceiveTimeout(char *buffer, size_t *bufflen);
-    StatusResult ReceiveTimeout(char *buffer, size_t *bufflen, timeval &timeout);
+    StatusResult ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout);
     StatusResult AwaitPacket(char *packet_buf, size_t *buff_len, string &type);
-    StatusResult AwaitPacket(class Packet *packet, string &type);
     StatusResult Send(char *buffer, size_t *bufflen);
     int TestRoundTrip(int side);
     void ResetTimeout(long int sec, long int micro_sec);
@@ -53,6 +52,7 @@ public:
         }
         return manager;
     }
+    bool use_manual_timeout;
 };
 
 #endif /* SOCKETS_H_ */

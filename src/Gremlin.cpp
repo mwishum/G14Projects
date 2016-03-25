@@ -25,7 +25,7 @@ StatusResult Gremlin::initialize(double damage_prob, double loss_prob) {
         return StatusResult::Error;
     }
 
-    cout << "D% " << damage_prob << "\nL%:" << loss_prob << endl;
+    cout << "Gremlin-> dam=" << damage_prob * 100 << "%  loss=" << loss_prob << "%" << endl;
 
     this->damage_prob = damage_prob;
     this->loss_prob = loss_prob;
@@ -41,8 +41,9 @@ StatusResult Gremlin::tamper(char *buffer, size_t *bufflen) {
     // Deciding to corrupt the packet or not.
     double tamper_roll = (rand() % 100 + 1) / 100.0;
     //dprint("Tamper Roll", tamper_roll)
-    if  (tamper_roll <= damage_prob) {
+    if (tamper_roll <= damage_prob) {
         dprint("====Tamper Roll====", "====Successful====")
+        cout << "Packet tampered with" <<endl;
         double degree_roll = (rand() % 100 + 1) / 100.0;
         if (degree_roll <= 0.7) {  // 1 bit corrupted
             int byte_roll = rand() % static_cast<int>(*bufflen);

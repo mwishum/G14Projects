@@ -7,14 +7,12 @@
 //============================================================================
 
 #include "packets.h"
-#include "Sockets.h"
 #include "Gremlin.h"
 
 Packet::Packet() :
         content(NULL), content_length(1), packet_size(0), checksum(0), sequence_num(
         0), type_string("X") {
     content = new char[1];
-    //memcpy(content, NO_CONTENT, 1);
     memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
 
@@ -27,7 +25,7 @@ Packet::Packet(char *data, size_t data_len) :
 }
 
 Packet::~Packet() {
-    //delete[] content;
+
 }
 
 StatusResult Packet::DecodePacket() {
@@ -47,6 +45,7 @@ StatusResult Packet::DecodePacket() {
     dprintcmph(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
     if (this->checksum != actual_sum) {
         //Packet is invalid
+        printf("Packet has errors! - ActSum:%#06x RecdSum:%#06x", actual_sum, this->checksum);
         return StatusResult::ChecksumDoesNotMatch;
     }
     assert(this->checksum == actual_sum);
@@ -60,6 +59,7 @@ StatusResult Packet::DecodePacket() {
 
     if (this->sequence_num != *seq_num) {
         //Packet was not expected
+        printf("Packet has errors! - ActSum:%#06x RecdSum:%#06x", actual_sum, this->checksum);
         return StatusResult::OutOfSequence;
     } else {
         this->sequence_num = *seq_num;
@@ -115,7 +115,6 @@ void Packet::Finalize() {
                   + content_length;
     this->checksum = Checksum();
     *checksum = this->checksum;
-    //printBinary(*checksum);
 }
 
 StatusResult Packet::Send() {
@@ -128,7 +127,6 @@ StatusResult Packet::Send() {
     } else if (Sockets::instance()->GetSide() == CLIENT) {
         r = _send_to_socket();
     }
-
     return r;
 }
 
@@ -139,13 +137,11 @@ StatusResult Packet::_send_to_socket() {
 
 StatusResult Packet::Receive() {
     packet_size = PACKET_SIZE;
-    StatusResult res = Sockets::instance()->ReceiveTimeout(packet_buffer,
-                                                           &packet_size);
+    StatusResult res = Sockets::instance()->ReceiveTimeout(packet_buffer, &packet_size);
     if (res != StatusResult::Success) {
         return res;
     } else
         return DecodePacket();
-
 }
 
 void Packet::Sequence(uint8_t n_seq) {

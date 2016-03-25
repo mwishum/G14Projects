@@ -33,7 +33,7 @@
 //#define NDEBUG
 #include <cassert>
 
-#define DEBUG true /*CHANGE TO FALSE for no debug printing*/
+#define DEBUG false /*CHANGE TO FALSE for no debug printing*/
 #define dprint(a, b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
 #define dprintm(a, b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
 #define dprintcmp(des, rec, act) if(DEBUG) {cout << (des) << " - Recd:" << (rec) << " Act:"<< (act) <<endl;}
@@ -60,7 +60,7 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 /* Test for GCC < 4.7.0 */
 #if GCC_VERSION < 40700
-#pragma message "GCC Version less than 4.7.0, for " __FILE__  ", You should upgrade"
+#pragma message "GCC Version less than 4.7.0, for " __FILE__  ", You should upgrade."
 #define TIME_METHOD std::chrono::monotonic_clock
 #else
 #define TIME_METHOD std::chrono::steady_clock
@@ -78,7 +78,7 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 #define TIMEOUT_SEC 2
 #define TIMEOUT_MSEC 0
 
-#define MAX_LOOPS 500
+#define MAX_LOOPS 1000
 
 enum class StatusResult {
     Success,

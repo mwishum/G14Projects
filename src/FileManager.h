@@ -31,7 +31,6 @@ public:
     StatusResult WriteFile(const string &path);
     StatusResult BreakFile(vector<DataPacket> &packs);
     StatusResult JoinFile(vector<DataPacket> &packs);
-    bool FileExists(const string &name);
     virtual ~FileManager();
 };
 

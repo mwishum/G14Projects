@@ -9,7 +9,6 @@
 #include "project.h"
 #include "packets.h"
 #include "FileManager.h"
-#include "Gremlin.h"
 #include "Server.h"
 #include "Client.h"
 
@@ -23,7 +22,6 @@ int main(int argc, char *argv[]) {
     void *tmpAddrPtr = NULL;
     bool volatile exit = true;
     string in;
-    locale loc;
 
     //get list of adapters and addresses
     getifaddrs(&ifAddrStruct);
@@ -52,10 +50,12 @@ int main(int argc, char *argv[]) {
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
     cout << "(running on " << this_address << ")" << endl;
-    cout << "========== Menu ==========" << endl;
-    cout << " Server: s <dmg%> <loss%> " << endl;
-    cout << " Client: c <address> " << endl;
-    cout << "         get <filename> " << endl;
+    cout << "=========== Menu ===========" << endl;
+    cout << " Exit: e " << endl;
+    cout << " Server:  s <dmg%> <loss%>  " << endl;
+    cout << " Client:\n  c <address>    " << endl;
+    cout << "  get <src file> <out file> " << endl;
+    cout << "===========  --  ===========" << endl;
     while (exit) {
         cout << ">";
         getline(cin, in);
@@ -90,7 +90,6 @@ int main(int argc, char *argv[]) {
                 file_name = command[1];
             }
             FileManager mgr(CLIENT);
-            mgr.FileExists(file_name);
             mgr.ReadFile(file_name);
             vector<DataPacket> packet_list;
             mgr.BreakFile(packet_list);

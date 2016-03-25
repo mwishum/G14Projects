@@ -17,47 +17,6 @@ Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use
     deft_timeout.tv_usec = TIMEOUT_MSEC;
 }
 
-/**
- * Binds addresses and ports to sockaddr structures
- *
- * @param address_from IP Address of near client in dot format
- * @param address_to IP Address of far client in dot format
- * @param port_from Port integer of near client
- * @param port_to Port integer of far client
- * @return status of binding
- */
-StatusResult Sockets::BindAddresses(string address_from, string address_to, uint16_t port_from, uint16_t port_to) {
-    socket_id = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_id < 0) {
-        perror("error on open socket");
-        return StatusResult::CouldNotOpen;
-    }
-
-    struct in_addr adr;
-
-    memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
-    server_sock_addr.sin_family = AF_INET;
-    if (address_to.empty()) {
-        server_sock_addr.sin_addr.s_addr = INADDR_ANY;
-    } else {
-        if (inet_aton(address_to.c_str(), &adr) == 0) {
-            perror("Invalid to address");
-            return StatusResult::CouldNotOpen;
-        }
-        server_sock_addr.sin_addr = adr;
-    }
-    server_sock_addr.sin_port = htons(port_to);
-
-    memset(&client_sock_addr, NOTHING, sizeof(client_sock_addr));
-    client_sock_addr.sin_family = AF_INET;
-    if (inet_aton(address_from.c_str(), &adr) == 0) {
-        perror("Invalid from address");
-        return StatusResult::CouldNotOpen;
-    }
-    client_sock_addr.sin_addr = adr;
-    client_sock_addr.sin_port = htons(port_from);
-    return StatusResult::Success;
-}
 
 /**
  * Binds addresses to socket. Far addresses is overwritten after receiving
@@ -69,14 +28,37 @@ StatusResult Sockets::BindAddresses(string address_from, string address_to, uint
  * @param port_to Port integer of far client
  * @return status of binding to socket
  */
-StatusResult Sockets::OpenServer(string address_from, uint16_t port_from, uint16_t port_to) {
+StatusResult Sockets::OpenServer(string address_from, string address_to, uint16_t port_from, uint16_t port_to) {
     if (initialized) {
         return StatusResult::AlreadyInitialized;
     }
     side = SERVER;
-    StatusResult bindr = BindAddresses(address_from, "", port_from, port_to);
-    if (bindr != StatusResult::Success)
-        return bindr;
+    struct in_addr adr;
+
+    socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_id < 0) {
+        perror("error on open socket");
+        return StatusResult::CouldNotOpen;
+    }
+
+    memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
+    server_sock_addr.sin_family = AF_INET;
+    if (inet_aton(address_from.c_str(), &adr) == 0) {
+        perror("Invalid to address");
+        return StatusResult::CouldNotOpen;
+    }
+    server_sock_addr.sin_addr = adr;
+    server_sock_addr.sin_port = htons(port_to);
+
+//    memset(&client_sock_addr, NOTHING, sizeof(client_sock_addr));
+//    client_sock_addr.sin_family = AF_INET;
+//    if (inet_aton(address_to.c_str(), &adr) == 0) {
+//       perror("Invalid from address");
+//      return StatusResult::CouldNotOpen;
+//    }
+//    client_sock_addr.sin_addr = adr;
+//    client_sock_addr.sin_port = htons(port_to);
+//    client_size = sizeof(client_sock_addr);
 
     int res = bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
@@ -102,11 +84,24 @@ StatusResult Sockets::OpenClient(string address_from, string address_to, uint16_
         return StatusResult::AlreadyInitialized;
     }
     side = CLIENT;
-    StatusResult bind_res = BindAddresses(address_from, address_to, port_from, port_to);
-    if (bind_res != StatusResult::Success)
-        return bind_res;
+    struct in_addr adr;
 
-    int res = connect(socket_id, (sockaddr *) &client_sock_addr, sizeof(client_sock_addr));
+    socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_id < 0) {
+        perror("error on open socket");
+        return StatusResult::CouldNotOpen;
+    }
+
+    memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
+    server_sock_addr.sin_family = AF_INET;
+    if (inet_aton(address_to.c_str(), &adr) == 0) {
+        perror("Invalid to address");
+        return StatusResult::CouldNotOpen;
+    }
+    server_sock_addr.sin_addr = adr;
+    server_sock_addr.sin_port = htons(port_to);
+
+    int res = connect(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
         perror("Error on connect");
         return StatusResult::CouldNotOpen;
@@ -142,18 +137,25 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
     assert(buffer != NULL);
     assert(*bufflen > 0 && *bufflen <= PACKET_SIZE);
     memset(buffer, NOTHING, *bufflen); /*Clear buffer that packet will be put in*/
-    socklen_t length = sizeof(client_sock_addr); /*length of struct*/
-    size_t res = (size_t) recvfrom(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, &length);
+    ssize_t res;
+
+    if (side == CLIENT) {
+        res = recv(socket_id, buffer, *bufflen, 0);
+    } else {//SERVER
+        res = recvfrom(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, &client_size);
+        if (&client_sock_addr != NULL) dprint("client sock set", true)
+    }
+
     if (res < 0) { /*If error occurred*/
         perror("Error on receive");
         return StatusResult::FatalError;
     }
     buffer[res] = 0; /*Set last byte to null*/
     if (res > PACKET_SIZE) {
-        cerr << "PACKET TO LARGE (" << res << "), DROPPED" << endl;
+        cerr << "PACKET TOO LARGE (" << res << "), DROPPED" << endl;
         return StatusResult::FatalError;
     }
-    *bufflen = res; /*Return length via pointer*/
+    *bufflen = (size_t) res; /*Return length via pointer*/
     if (DEBUG) {
         cout << "recvd packet [begin]";
         //fwrite(buffer, *bufflen, 1, stdout);
@@ -185,12 +187,13 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
  * @return packet returned by buffer and its size in bufflen.
  * Status of receipt returned
  */
-StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, timeval &timeout) {
+StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout) {
     FD_ZERO (&socks);
     FD_SET(socket_id, &socks);
-    struct timeval *temp = new timeval;
-    memcpy(temp, &timeout, sizeof(timeval));
-    int rval = select(socket_id + 1, &socks, NULL, NULL, temp);
+    struct timeval temp;
+    temp.tv_usec = timeout.tv_usec;
+    temp.tv_sec = timeout.tv_sec;
+    int rval = select(socket_id + 1, &socks, NULL, NULL, &temp);
     if (rval < 0) {
         perror("Receive select error");
         return StatusResult::FatalError;
@@ -219,7 +222,12 @@ StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
         dprint("buff len", *bufflen)
         cout << " " << "[end]" << endl;
     }/*DEBUG*/
-    ssize_t res = sendto(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, length);
+    ssize_t res = 0;
+    if (side == CLIENT)
+        res = send(socket_id, buffer, *bufflen, 0);
+    else //SERVER
+        res = sendto(socket_id, buffer, *bufflen, 0, (sockaddr *) &client_sock_addr, length);
+
     if (res < 0) {
         perror("Error on send");
         return StatusResult::Error;
@@ -250,8 +258,10 @@ int Sockets::TestRoundTrip(int side) {
         dprint("RTTT side", "client")
         RTTPacket client_send(ReqType::RTTClient, dat, strlen(dat));
         RTTPacket server_resp(ReqType::RTTServer, dat, strlen(dat));
-        dprintm("[c] to server", client_send.Send())
-        dprintm("[c] rcv server", res = server_resp.Receive())
+        res = client_send.Send();
+        dprintm("[c] to server", res)
+        res = res = server_resp.Receive();
+        dprintm("[c] rcv server", res)
         if (res == StatusResult::Timeout) {
             perror("Server did not respond to RTT start");
             return -1;
@@ -265,13 +275,15 @@ int Sockets::TestRoundTrip(int side) {
         ResetTimeout(10, 0);
         dprint("RTTT side", "server")
         RTTPacket from_client(ReqType::RTTClient);
-        dprintm("[s] rcv client", res = from_client.Receive())
+        res = from_client.Receive();
+        dprintm("[s] rcv client", res)
         if (res == StatusResult::Timeout) {
             perror("Client did not respond to RTT start");
             return -1;
         } else if (res == StatusResult::Success) {
             RTTPacket my_resp(ReqType::RTTServer);
-            dprintm("[s] to client", my_resp.Send())
+            res = my_resp.Send();
+            dprintm("[s] to client", res)
         } else {
             dprintm("Failed communicating with client", res)
             return -1;
@@ -285,11 +297,13 @@ int Sockets::TestRoundTrip(int side) {
         ReqType type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
         RTTPacket init((side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient, p_content, strlen(p_content));
         if (trips == 4) {
-            dprintm("[li] send", init.Send())
+            res = init.Send();
+            dprintm("[li] send", res)
             start_time = TIME_METHOD::now();
         }
         RTTPacket in(type_send, p_content, strlen(p_content));
-        dprintm("[l] rcv", res = in.Receive())
+        res = in.Receive();
+        dprintm("[l] rcv", res)
         if (res == StatusResult::Timeout) { /*Select timed out*/
             perror("SELECT timeout");
             trip_times[trips] = 0;
@@ -299,13 +313,15 @@ int Sockets::TestRoundTrip(int side) {
             trip_times[trips] = span.count();
             type_send = (side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient;
             RTTPacket out(type_send, p_content, strlen(p_content)); /*Send opposite type of packet to other side*/
-            dprintm("[l] send", out.Send())
+            res = out.Send();
+            dprintm("[l] send", res)
             start_time = TIME_METHOD::now();
         }
     }
     if (side == CLIENT) {
         RTTPacket last_one(ReqType::RTTServer, NO_CONTENT, 1);
-        dprintm("Getting the the last one", res = last_one.Receive())
+        res = last_one.Receive();
+        dprintm("Getting the the last one", res)
     }
     int average = 0, r_total = 0;
     for (int i = 0; i < 5; i++)
@@ -313,7 +329,7 @@ int Sockets::TestRoundTrip(int side) {
     average = r_total / 5;
     rtt_determined.tv_usec = average * 2;
     rtt_determined.tv_sec = 0;
-    dprint("Average RTT", average)
+    cout << "Round trip time = " << average << "microsec" << endl;
     use_manual_timeout = false;
     ResetTimeout(0, 0);
     return average;

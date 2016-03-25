@@ -20,6 +20,12 @@ using namespace std;
 inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob;
     StatusResult result;
+    string packet_type;
+    char *pack_buffer_a = new char[PACKET_SIZE];
+    size_t size;
+    //int loops = 0;
+
+    //Decode command
     if (command.size() < 3) {
         cout << "Enter damage probability: ";
         getline(cin, damage_prob);
@@ -31,26 +37,24 @@ inline bool main_server(string this_address, vector<string> &command) {
     }
 
     Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
-    result = Sockets::instance()->OpenServer(this_address, PORT_SERVER, PORT_CLIENT);
-    FileManager mgr(SERVER);
+    result = Sockets::instance()->OpenServer(this_address, "", PORT_CLIENT, PORT_CLIENT);
     if (result != StatusResult::Success) {
         cerr << "Could not start server." << endl;
         return true;
     }
+
+    FileManager mgr(SERVER);
+
     cout << "Success starting server." << endl;
 
-    string packet_type;
-    char *pack_buffer_a = new char[PACKET_SIZE];
-    size_t size = PACKET_SIZE;
-    int loops = 0;
-
     while (true) {
-         size = PACKET_SIZE;
-        dprintm("server await returned", result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
-        if (loops++ >= MAX_LOOPS) {
-            cout << "OUT OF LOOPS" << endl;
-            break;
-        }
+        size = PACKET_SIZE;
+        result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
+        dprintm("server await returned", result);
+//        if (loops++ >= MAX_LOOPS) {
+//            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
+//            break;
+//        }
         if (result != StatusResult::Success) continue;
         dprint("Packet type", packet_type)
         if (packet_type == GREETING) {
@@ -82,11 +86,11 @@ inline bool main_server(string this_address, vector<string> &command) {
             //////
             if (file_exists) {
                 AckPacket ack_file_exists(0);
-                dprintm("Client ack file exists", result = ack_file_exists.Receive());
+                result = ack_file_exists.Receive();
+                dprintm("Client ack file exists", result);
                 if (result == StatusResult::Success) {
-                    cout << "\n\nRTT Test\n";
+
                     Sockets::instance()->TestRoundTrip(SERVER);
-                    cout << "\nEnd RTT Test\n\n";
 
                     mgr.ReadFile(file_name_from_client);
                     vector<DataPacket> packet_list;
@@ -101,12 +105,13 @@ inline bool main_server(string this_address, vector<string> &command) {
                         } else alt_bit = 1;
 
                         send_again:
-                        cout << endl;
+
                         packet.Sequence(alt_bit);
                         packet.Send();
 
-                        dprintm("server await returned",
-                                result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type));
+                        //Wait for response from server
+                        result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
+                        dprintm("server await returned", result)
 
                         if (packet_type == NO_ACK) {
                             NakPacket nakPacket(0);
@@ -142,7 +147,7 @@ inline bool main_server(string this_address, vector<string> &command) {
                             dprintm("Something Happened", result);
                         }
                     }
-                    cout << "Finished file transmission." << endl;
+                    cout << "Finished file transmission successfully." << endl;
                 } else if (result == StatusResult::Timeout) {
                     goto send_file_ack_again;
                 }
@@ -150,10 +155,10 @@ inline bool main_server(string this_address, vector<string> &command) {
         } //***ELSE IF GET INFO
         else {
         }
-        if (loops++ >= MAX_LOOPS) {
-            cout << "OUT OF LOOPS" << endl;
-            break;
-        }
+//        if (loops++ >= MAX_LOOPS) {
+//            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
+//            break;
+//        }
     } //***WHILE
     return true;
 }
