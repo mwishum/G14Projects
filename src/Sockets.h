@@ -1,9 +1,9 @@
 //============================================================================
-// Project 1: Reliable FTP over UDP
+// Project 2: Reliable FTP Using GBN over UDP
 // Author: Group 14
 // Mason Wishum (mlw0032), Harrison Kinchler (hdk0002),
 // Michael Pearce (mtp0013)
-// March 9, 2016
+// April 15, 2016
 //============================================================================
 
 #ifndef SOCKETS_H_
@@ -37,11 +37,11 @@ public:
     StatusResult OpenClient(string address_to, uint16_t port_to);
     StatusResult OpenServer(string address_from, uint16_t port);
     void Close();
-    StatusResult Receive(char *buffer, size_t *bufflen);
-    StatusResult ReceiveTimeout(char *buffer, size_t *bufflen);
-    StatusResult ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout);
+    StatusResult Receive(char *buffer, size_t *buff_len);
+    StatusResult ReceiveTimeout(char *buffer, size_t *buff_len);
+    StatusResult ReceiveTimeout(char *buffer, size_t *buff_len, struct timeval timeout);
     StatusResult AwaitPacket(char *packet_buf, size_t *buff_len, string &type);
-    StatusResult Send(char *buffer, size_t *bufflen);
+    StatusResult Send(char *buffer, size_t *buff_len);
     int TestRoundTrip(int side);
     void ResetTimeout(long int sec, long int micro_sec);
     int GetSide() { return side; }

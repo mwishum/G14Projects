@@ -1,9 +1,9 @@
 //============================================================================
-// Project 1: Reliable FTP over UDP
+// Project 2: Reliable FTP Using GBN over UDP
 // Author: Group 14
 // Mason Wishum (mlw0032), Harrison Kinchler (hdk0002),
 // Michael Pearce (mtp0013)
-// March 9, 2016
+// April 15, 2016
 //============================================================================
 
 #ifndef    PROJECT_H
@@ -33,7 +33,7 @@
 //#define NDEBUG
 #include <cassert>
 
-#define DEBUG false /*CHANGE TO FALSE for no debug printing*/
+#define DEBUG true /*CHANGE TO FALSE for no debug printing*/
 #define dprint(a, b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
 #define dprintm(a, b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
 #define dprintcmp(des, rec, act) if(DEBUG) {cout << (des) << " - Recd:" << (rec) << " Act:"<< (act) <<endl;}

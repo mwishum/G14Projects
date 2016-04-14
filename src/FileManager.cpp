@@ -1,9 +1,9 @@
 //============================================================================
-// Project 1: Reliable FTP over UDP
+// Project 2: Reliable FTP Using GBN over UDP
 // Author: Group 14
 // Mason Wishum (mlw0032), Harrison Kinchler (hdk0002),
 // Michael Pearce (mtp0013)
-// March 9, 2016
+// April 15, 2016
 //============================================================================
 
 #include "FileManager.h"
@@ -22,7 +22,7 @@ FileManager::FileManager(int side) :
  *
  * @param path filename/path of file to open for reading.
  *
- * @return Status of opening (FatalError if not openable)
+ * @return Status of opening (FatalError if not readable)
  */
 StatusResult FileManager::ReadFile(const string &path) {
     in_file.open(path, ios::in | ios::binary | ios::ate);
@@ -39,7 +39,7 @@ StatusResult FileManager::ReadFile(const string &path) {
  *
  * @param path filename/path of file to open for reading.
  *
- * @return Status of opening (FatalError if not openable)
+ * @return Status of opening (FatalError if not readable)
  */
 StatusResult FileManager::WriteFile(const string &path) {
     out_file.open(path, ios::out | ios::binary);
@@ -52,7 +52,7 @@ StatusResult FileManager::WriteFile(const string &path) {
 }
 
 /**
- * Breaks the file specifed in OpenFile into however many packets are needed
+ * Breaks the file specified in OpenFile into however many packets are needed
  * to transmit it and returns it.
  *
  * @param &packs NON-NULL vector of DataPackets to write to
@@ -78,20 +78,12 @@ StatusResult FileManager::BreakFile(vector<DataPacket> &packs) {
             in_file.read(file_buffer, rem);
             packs.push_back(DataPacket(file_buffer, rem));
             dprint("pack #", packs.size())
-            //char temp[rem + 1];
-            //temp[rem] = '\0';
-            //memcpy(temp, file_buffer, rem);
-            //dprint("data", temp)
             break;
         }
 
         in_file.read(file_buffer, Packet::max_content());
         packs.push_back(DataPacket(file_buffer, Packet::max_content()));
-        //char temp[Packet::max_content() + 1];
-        //temp[Packet::max_content()] = '\0';
-        //memcpy(temp, file_buffer, Packet::max_content());
         dprint("pack #", packs.size())
-        //dprint("data", temp)
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);

@@ -1,9 +1,9 @@
 //============================================================================
-// Project 1: Reliable FTP over UDP
+// Project 2: Reliable FTP Using GBN over UDP
 // Author: Group 14
 // Mason Wishum (mlw0032), Harrison Kinchler (hdk0002),
 // Michael Pearce (mtp0013)
-// March 9, 2016
+// April 15, 2016
 //============================================================================
 
 #include "packets.h"
