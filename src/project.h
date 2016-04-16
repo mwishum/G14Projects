@@ -39,9 +39,9 @@
 #define dprintcmp(des, rec, act) if(DEBUG) {cout << (des) << " - Recd:" << (rec) << " Act:"<< (act) <<endl;}
 #define dprintcmph(des, rec, act) if(DEBUG) {cout  << (des) << " - Recd:" << hex <<(rec) << " Act:"<< (act)  << dec <<endl;}
 
-inline void printBinary(int a) {
-    std::cout << std::bitset<16>(a) << " " << a << std::endl;
-}
+//inline void printBinary(int a) {
+//    std::cout << std::bitset<16>(a) << " " << a << std::endl;
+//}
 
 inline std::vector<std::string> split(const std::string &s, char delim) {
     std::vector<std::string> elems;

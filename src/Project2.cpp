@@ -7,7 +7,6 @@
 //============================================================================
 
 #include "project.h"
-#include "packets.h"
 #include "FileManager.h"
 #include "side/Server.h"
 #include "side/Client.h"

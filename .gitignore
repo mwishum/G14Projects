@@ -1,5 +1,4 @@
 /Debug/
 .idea/
 .settings/
-CMakeLists.txt
 *_test.*

@@ -49,7 +49,7 @@ inline bool main_client(string this_address, vector<string> &command) {
     }
     while (true) {
         client:
-        int loops = 0;
+        //int loops = 0;
         cout << ">>";
         getline(cin, in);
         command.clear();
@@ -101,12 +101,12 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else alt_bit = 1;
 
                 receive_more:
-//                if (loops++ >= MAX_LOOPS) {
-//                    cerr << "Client ran too long." << endl;
-//                    break;
-//                }
+                /*if (loops++ >= MAX_LOOPS) {
+                    cerr << "Client ran too long." << endl;
+                    break;
+                }*/
 
-                DataPacket dataPacket;
+                DataPacket dataPacket(NO_CONTENT, 0);
                 dataPacket.Sequence(alt_bit);
                 result = dataPacket.Receive();
 
@@ -151,10 +151,10 @@ inline bool main_client(string this_address, vector<string> &command) {
             cout << "[client closed]" << endl;
             return true; //Back to main program loop
         } else {
-//            if (loops++ >= MAX_LOOPS) {
-//                cerr << "Client ran too long." << endl;
-//                break;
-//            }
+            /*if (loops++ >= MAX_LOOPS) {
+                cerr << "Client ran too long." << endl;
+                break;
+            }*/
             continue; //Continue client menu loop
         }
     }
