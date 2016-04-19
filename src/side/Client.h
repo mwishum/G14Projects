@@ -6,8 +6,8 @@
 // April 15, 2016
 //============================================================================
 
-#ifndef G14PROJECT1_CLIENT_H
-#define G14PROJECT1_CLIENT_H
+#ifndef G14PROJECT2_CLIENT_H
+#define G14PROJECT2_CLIENT_H
 
 #include "../project.h"
 #include "../Sockets.h"
@@ -17,7 +17,7 @@ using namespace std;
 
 inline bool main_client(string this_address, vector<string> &command) {
     string remote_server_a, file_name, dest_file_name, in, primary;
-    StatusResult result;
+    SR result;
     char buffer[PACKET_SIZE];
     size_t buffer_len = PACKET_SIZE;
     if (command.size() == 1) {
@@ -28,7 +28,7 @@ inline bool main_client(string this_address, vector<string> &command) {
     }
     result = Sockets::instance()->OpenClient(remote_server_a, PORT_CLIENT);
     FileManager mgr(CLIENT);
-    if (result != StatusResult::Success) {
+    if (result != SR::Success) {
         cerr << "Could not start Client." << endl;
         return true;
     }
@@ -38,7 +38,7 @@ inline bool main_client(string this_address, vector<string> &command) {
         GreetingPacket hello(&this_address[0], this_address.size());
         hello.Send();
         result = hello.Receive();
-        if (result != StatusResult::Success) {
+        if (result != SR::Success) {
             cout << " [" << tries << "] Server unreachable (" << StatusMessage[(int) result] << ")." << endl;
         } else {
             cout << "Server ";
@@ -77,8 +77,12 @@ inline bool main_client(string this_address, vector<string> &command) {
 
             string p_type;
             while (true) {
-                result = Sockets::instance()->AwaitPacket(buffer, &buffer_len, p_type);
-                if (result == StatusResult::Success) {
+                //result = Sockets::instance()->AwaitPacket(buffer, &buffer_len, p_type);
+                DataPacket *packet = nullptr;
+                result = Sockets::instance()->AwaitPacket(&packet, p_type);
+                assert(packet != nullptr);
+                delete packet;
+                if (result == SR::Success) {
                     AckPacket next(0);
                     next.Send();
                 } else cout << "Error communicating with server: " << StatusMessage[(int) result] << endl;
@@ -101,16 +105,12 @@ inline bool main_client(string this_address, vector<string> &command) {
                 } else alt_bit = 1;
 
                 receive_more:
-                /*if (loops++ >= MAX_LOOPS) {
-                    cerr << "Client ran too long." << endl;
-                    break;
-                }*/
 
-                DataPacket dataPacket(NO_CONTENT, 0);
-                dataPacket.Sequence(alt_bit);
-                result = dataPacket.Receive();
+                DataPacket pack(NO_CONTENT, 0);
+                pack.Sequence(alt_bit);
+                result = pack.Receive();
 
-                if (dataPacket.ContentSize() == 0) { // BREAK ON THIS
+                if (pack.ContentSize() == 0) { // BREAK ON THIS
                     RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
                     suc.Send();
                     break;
@@ -118,25 +118,25 @@ inline bool main_client(string this_address, vector<string> &command) {
 
                 dprintm("Status Result (CLIENT)", result);
 
-                if (result == StatusResult::Success) {
-                    packet_list.push_back(dataPacket);
+                if (result == SR::Success) {
+                    packet_list.push_back(pack);
                     AckPacket packet = AckPacket(alt_bit);
                     packet.Send();
                     continue;
-                } else if (result == StatusResult::ChecksumDoesNotMatch) {
+                } else if (result == SR::ChecksumDoesNotMatch) {
                     NakPacket packet = NakPacket(alt_bit);
                     packet.Send();
                     //PRINTED IN DECODE
                     cout << " Seq#:" << (int) alt_bit << endl;
                     goto receive_more;
-                } else if (result == StatusResult::OutOfSequence) {
+                } else if (result == SR::OutOfSequence) {
                     NakPacket packet = NakPacket(alt_bit);
                     packet.Send();
                     //PRINTED IN DECODE
                     cout << " Seq#:" << (int) alt_bit << endl;
                     goto receive_more;
                 } else {
-                    dprintm("Status Result", result)
+                    dprintm("RECEIVE FILE LOOP ELSE", result)
                     goto receive_more;
                 }
             }
@@ -145,7 +145,7 @@ inline bool main_client(string this_address, vector<string> &command) {
             mgr.JoinFile(packet_list);
             cout << "File transfered to `" << dest_file_name << "` successfully." << endl;
             Sockets::instance()->use_manual_timeout = true;
-            Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MSEC);
+            Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
             Sockets::instance()->use_manual_timeout = false;
         } else if (primary == "e") {
             cout << "[client closed]" << endl;
@@ -161,66 +161,4 @@ inline bool main_client(string this_address, vector<string> &command) {
 }
 
 
-inline void proof_client(string this_address) {
-    /*
-     * OLD CLIENT
-     */
-    struct hostent *server;
-    int socket_id;
-    socklen_t client_addr_len, server_addr_len;
-    char buffer[256];
-    struct sockaddr_in server_address, client_address;
-    ssize_t n;
-    socket_id = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_id < 0) {
-        perror("ERROR opening socket");
-        //continue;
-    }
-    printf("Socket opened\n");
-    cout << "Enter host to connect to: ";
-    string remove_server_address;
-    getline(cin, remove_server_address);
-    server = gethostbyname(remove_server_address.c_str());
-    if (server == NULL) {
-        fprintf(stderr, "ERROR, no such host\n");
-        //continue;
-    }
-    printf("Server name => %s\n", server->h_name);
-    memset(&server_address, NOTHING, sizeof(server_address));
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = inet_addr(remove_server_address.c_str()); //TODO: CHANGE to inet_aton!
-    if (server_address.sin_addr.s_addr == INADDR_NONE) {
-        perror("Invlaid address");
-        //continue;
-    }
-    server_address.sin_port = htons(PORT_SERVER);
-
-    if (connect(socket_id, (sockaddr *) &server_address, sizeof(server_address)) < 0) {
-        perror("ERROR connecting");
-        //continue;
-    }
-
-    memset(buffer, NOTHING, 256);
-    string inbuff = "", trash;
-
-    cout << "Enter message: ";
-    getline(cin, inbuff);
-    inbuff.copy(buffer, inbuff.size());
-    n = send(socket_id, buffer, inbuff.size(), 0);
-    cout << "=|" << buffer << "|=" << endl;
-    if (n < 0) {
-        perror("ERROR writing to socket");
-        //continue;
-    }
-    memset(buffer, NOTHING, 256);
-
-    n = recv(socket_id, buffer, 255, 0);
-    if (n < 0) {
-        perror("ERROR reading from socket");
-        //continue;
-    }
-    printf("%s\n", buffer);
-
-}
-
-#endif //G14PROJECT1_CLIENT_H
+#endif //G14PROJECT2_CLIENT_H

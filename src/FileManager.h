@@ -11,7 +11,6 @@
 
 #include "project.h"
 #include "packets.h"
-#include "Sockets.h"
 #include <fstream>
 #include <iterator>
 #include <algorithm>
@@ -27,10 +26,10 @@ class FileManager {
 
 public:
     FileManager(int side);
-    StatusResult ReadFile(const string &path);
-    StatusResult WriteFile(const string &path);
-    StatusResult BreakFile(vector<DataPacket> &packs);
-    StatusResult JoinFile(vector<DataPacket> &packs);
+    SR ReadFile(const string &path);
+    SR WriteFile(const string &path);
+    SR BreakFile(vector<DataPacket> &packs);
+    SR JoinFile(vector<DataPacket> &packs);
     virtual ~FileManager();
 };
 

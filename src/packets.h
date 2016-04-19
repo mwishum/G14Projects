@@ -10,7 +10,7 @@
 #define PACKETS_H_
 
 #include "project.h"
-#include "Sockets.h"
+#include "chrono"
 
 #define ACK               "A"
 #define NO_ACK            "N"
@@ -23,6 +23,7 @@
 #define GREETING          "H"
 
 using namespace std;
+
 /**
  * Type used for RTTPacket and RequestPacket
  */
@@ -30,19 +31,32 @@ enum class ReqType {
     Info, Fail, Success, RTTClient, RTTServer
 };
 
+/**
+ * Class Packet
+ *
+ * A Packet is a representation of the data to be sent and its required
+ * information. It contains basic methods but can contain no content
+ * (use DataPacket).
+ *
+ * Send, SendDelayed, Receive, Content, ContentSize, and Sequence are
+ * expected to be called, and will be set in subclasses.
+ *
+ */
 class Packet {
     friend class Sockets;
 
 public:
     Packet();
     virtual ~Packet();
-    virtual StatusResult DecodePacket();
-    virtual StatusResult DecodePacket(char *packet_buffer, size_t buf_length);
+    virtual SR DecodePacket();
+    virtual SR DecodePacket(char *packet_buffer, size_t buf_length);
     virtual void ConvertFromBuffer();
     virtual uint16_t Checksum();
     virtual void Finalize();
-    virtual StatusResult Send();
-    virtual StatusResult Receive();
+    virtual SR Send();
+    virtual SR SendDelayed();
+    virtual SR Receive();
+    static size_t header_size();
     static size_t max_content();
     char *Content() {
         return content;
@@ -54,7 +68,8 @@ public:
     uint8_t Sequence();
 
 protected:
-    virtual StatusResult _send_to_socket();
+    virtual SR send_delayed(chrono::milliseconds time, Packet p);
+    virtual SR _send_to_socket();
     Packet(char *data, size_t data_len);
     char *content;
     size_t content_length;
@@ -74,7 +89,7 @@ public:
 class AckPacket : public DataPacket {
 public:
     AckPacket(uint8_t seq);
-    StatusResult Send() {
+    SR Send() {
         Finalize();
         return _send_to_socket();
     }
@@ -83,7 +98,7 @@ public:
 class NakPacket : public DataPacket {
 public:
     NakPacket(uint8_t seq);
-    StatusResult Send() {
+    SR Send() {
         Finalize();
         return _send_to_socket();
     }
@@ -98,7 +113,7 @@ class RTTPacket : public DataPacket {
 public:
     RTTPacket(ReqType type, char *data, size_t data_len);
     RTTPacket(ReqType type);
-    StatusResult Send() {
+    SR Send() {
         Finalize();
         return _send_to_socket();
     }
@@ -107,6 +122,17 @@ public:
 class GreetingPacket : public DataPacket {
 public:
     GreetingPacket(char *data, size_t data_len);
+};
+
+class UnknownPacket : public DataPacket {
+    friend class Sockets;
+
+public:
+    UnknownPacket();
+
+private:
+    UnknownPacket(char *packet_buffer, size_t buf_length);
+
 };
 
 #endif /* PACKETS_H_ */

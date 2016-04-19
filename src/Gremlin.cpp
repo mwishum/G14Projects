@@ -18,11 +18,11 @@ Gremlin::Gremlin() {
     this->loss_prob = 0;
 }
 
-StatusResult Gremlin::initialize(double damage_prob, double loss_prob) {
+SR Gremlin::initialize(double damage_prob, double loss_prob) {
     if (initialized) {
-        return StatusResult::AlreadyInitialized;
+        return SR::AlreadyInitialized;
     } else if (damage_prob < 0 || damage_prob > 1 || loss_prob < 0 || loss_prob > 1) {
-        return StatusResult::Error;
+        return SR::Error;
     }
 
     cout << "Gremlin-> dam=" << damage_prob * 100 << "%  loss=" << loss_prob * 100 << "%" << endl;
@@ -30,13 +30,15 @@ StatusResult Gremlin::initialize(double damage_prob, double loss_prob) {
     this->damage_prob = damage_prob;
     this->loss_prob = loss_prob;
     this->initialized = true;
-    return StatusResult::Success;
+    return SR::Success;
 }
 
-StatusResult Gremlin::tamper(char *buffer, size_t *bufflen) {
+SR Gremlin::tamper(char *buffer, size_t *buff_len) {
     if (!initialized) {
-        return StatusResult::NotInitialized;
+        return SR::NotInitialized;
     }
+
+    //TODO: implement delayed odds in Gremlin
 
     // Deciding to corrupt the packet or not.
     double tamper_roll = (rand() % 100 + 1) / 100.0;
@@ -45,15 +47,15 @@ StatusResult Gremlin::tamper(char *buffer, size_t *bufflen) {
         cout << "Packet tampered with" << endl;
         double degree_roll = (rand() % 100 + 1) / 100.0;
         if (degree_roll <= 0.7) {  // 1 bit corrupted
-            int byte_roll = rand() % static_cast<int>(*bufflen);
+            int byte_roll = rand() % static_cast<int>(*buff_len);
             //dprint("Bytes changed (1)", byte_roll)
             memset(buffer + byte_roll, '|', 1);
         } else if (degree_roll <= 0.9) { // 2 bits corrupted
-            int byte_roll = rand() % (static_cast<int>(*bufflen) - 1);
+            int byte_roll = rand() % (static_cast<int>(*buff_len) - 1);
             //dprint("Bytes changed (2)", byte_roll)
             memset(buffer + byte_roll, '|', 2);
         } else if (degree_roll <= 1) { // 3 bits corrupted
-            int byte_roll = rand() % (static_cast<int>(*bufflen) - 2);
+            int byte_roll = rand() % (static_cast<int>(*buff_len) - 2);
             //dprint("Bytes changed (3)", byte_roll)
             memset(buffer + byte_roll, '|', 3);
         }
@@ -64,8 +66,12 @@ StatusResult Gremlin::tamper(char *buffer, size_t *bufflen) {
     //dprint("Drop Roll", drop_roll)
     if (drop_roll <= loss_prob) {
         cout << "Packet Dropped" << endl;
-        return StatusResult::Dropped;
+        return SR::Dropped;
     } //else dprint("Drop Roll", "Failed")
 
-    return StatusResult::Success;
+    return SR::Success;
 }
+chrono::milliseconds Gremlin::get_delay() {
+    return chrono::milliseconds(rand() % 200);
+}
+

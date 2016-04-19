@@ -12,6 +12,7 @@
 #include "project.h"
 #include "packets.h"
 #include <chrono>
+#include <memory>
 
 #define CLIENT 10
 #define SERVER 11
@@ -34,14 +35,15 @@ class Sockets {
 public:
     Sockets();
     virtual ~Sockets();
-    StatusResult OpenClient(string address_to, uint16_t port_to);
-    StatusResult OpenServer(string address_from, uint16_t port);
+    SR OpenClient(string address_to, uint16_t port_to);
+    SR OpenServer(string address_from, uint16_t port);
     void Close();
-    StatusResult Receive(char *buffer, size_t *buff_len);
-    StatusResult ReceiveTimeout(char *buffer, size_t *buff_len);
-    StatusResult ReceiveTimeout(char *buffer, size_t *buff_len, struct timeval timeout);
-    StatusResult AwaitPacket(char *packet_buf, size_t *buff_len, string &type);
-    StatusResult Send(char *buffer, size_t *buff_len);
+    SR Receive(char *buffer, size_t *buff_len);
+    SR ReceiveTimeout(char *buffer, size_t *buff_len);
+    SR ReceiveTimeout(char *buffer, size_t *buff_len, struct timeval timeout);
+    SR AwaitPacket(char *packet_buf, size_t *buff_len, string &type);
+    SR AwaitPacket(DataPacket **packet, string &type);
+    SR Send(char *buffer, size_t *buff_len);
     int TestRoundTrip(int side);
     void ResetTimeout(long int sec, long int micro_sec);
     int GetSide() { return side; }

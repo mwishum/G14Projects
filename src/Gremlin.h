@@ -9,6 +9,7 @@
 #ifndef GREMLIN_H
 #define GREMLIN_H
 
+#include <chrono>
 #include "project.h"
 
 using namespace std;
@@ -22,14 +23,15 @@ private:
 
 public:
     Gremlin();
-    StatusResult initialize(double damage_prob, double loss_prob);
-    StatusResult tamper(char *buffer, size_t *bufflen);
+    SR initialize(double damage_prob, double loss_prob);
+    SR tamper(char *buffer, size_t *buff_len);
     static Gremlin *instance() {
         if (manager == NULL) {
             manager = new Gremlin;
         }
         return manager;
     }
+    chrono::milliseconds get_delay();
 };
 
 #endif //GREMLIN_H

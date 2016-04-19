@@ -7,8 +7,8 @@
 //============================================================================
 
 
-#ifndef G14PROJECT1_SERVER_H
-#define G14PROJECT1_SERVER_H
+#ifndef G14PROJECT2_SERVER_H
+#define G14PROJECT2_SERVER_H
 
 #include "../project.h"
 #include "../Sockets.h"
@@ -19,7 +19,7 @@ using namespace std;
 
 inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob;
-    StatusResult result;
+    SR result;
     string packet_type;
     char *pack_buffer_a = new char[PACKET_SIZE];
     size_t size;
@@ -38,7 +38,7 @@ inline bool main_server(string this_address, vector<string> &command) {
 
     Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
     result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
-    if (result != StatusResult::Success) {
+    if (result != SR::Success) {
         cerr << "Could not start server." << endl;
         return true;
     }
@@ -49,10 +49,11 @@ inline bool main_server(string this_address, vector<string> &command) {
 
     while (true) {
         size = PACKET_SIZE;
+        //TODO: make long await method
         result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
         //  dprintm("server await returned", result);
 
-        if (result != StatusResult::Success) continue;
+        if (result != SR::Success) continue;
         dprint("Packet type", packet_type)
         if (packet_type == GREETING) {
             GreetingPacket hello(NO_CONTENT, 1);
@@ -88,7 +89,7 @@ inline bool main_server(string this_address, vector<string> &command) {
             AckPacket ack_file_exists(0);
             result = ack_file_exists.Receive();
             dprintm("Client ack file exists", result);
-            if (result == StatusResult::Success) {
+            if (result == SR::Success) {
                 //Back to loop if file doesnt exist.
                 if(!file_exists) continue;
 
@@ -113,6 +114,8 @@ inline bool main_server(string this_address, vector<string> &command) {
                     packet.Send();
 
                     //Wait for response from server
+
+                    //TODO: replace with pointer version of await
                     result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
                     //dprintm("server await returned", result)
 
@@ -141,7 +144,7 @@ inline bool main_server(string this_address, vector<string> &command) {
                         }
 
                         continue;
-                    } else if (result == StatusResult::Timeout) {
+                    } else if (result == SR::Timeout) {
                         goto send_again;
                     } else if (packet_type == GET_SUCCESS) {
                         break;
@@ -169,66 +172,4 @@ inline bool main_server(string this_address, vector<string> &command) {
 }
 
 
-inline void proof_server(string this_address) {
-    int socket_id;
-    socklen_t client_addr_len, server_addr_len;
-    char buffer[256];
-    struct sockaddr_in server_address, client_address;
-    ssize_t n;
-    /*
-     *  OLD SERVER
-     */
-    //make a new socket for Datagrams over the Internet
-    socket_id = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_id < 0) {
-        perror("ERROR opening socket");
-        //continue;
-    }
-    //put address in memory
-    memset(&server_address, NOTHING, sizeof(server_address));
-    //set type, address, and port of this server.
-    server_address.sin_family = AF_INET;
-    cout << "Server on " << this_address << endl;
-    server_address.sin_addr.s_addr = inet_addr(this_address.c_str()); //TODO: CHANGE to inet_aton!
-    if (server_address.sin_addr.s_addr == INADDR_NONE) {
-        perror("Invalid address");
-        //continue;
-    }
-    server_address.sin_port = htons(PORT_SERVER);
-    server_addr_len = sizeof(server_address);
-    //bind socket with addresses
-    n = bind(socket_id, (sockaddr *) &server_address, server_addr_len);
-    if (n < 0) {
-        perror("ERROR on binding");
-        //continue;
-    }
-
-    cout << "Waiting on connection.\n(send CTRL+Y on client to end)" << endl;
-    bool exiting = false;
-    while (!exiting) {
-        memset(buffer, NOTHING, 256);
-        client_addr_len = sizeof(client_address);
-        n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (sockaddr *) &client_address, &client_addr_len);
-        if (n < 0) {
-            perror("Error recvfrom");
-            continue;
-        }
-        printf("Here is the message :%s:\n", buffer);
-        buffer[n] = 0;
-        if (!strcasecmp(buffer, "\x19")) { //CTRL+Y
-            cout << "Exit received" << endl;
-            exiting = true;
-        }
-        string message = "echo:";
-        message.copy(buffer, message.size(), 0);
-        n = sendto(socket_id, buffer, sizeof(buffer), 0,
-                   (sockaddr *) &client_address, client_addr_len);
-        if (n < 0) {
-            perror("Error sendto");
-            continue;
-        }
-    }
-
-}
-
-#endif //G14PROJECT1_SERVER_H
+#endif //G14PROJECT2_SERVER_H

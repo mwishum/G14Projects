@@ -48,45 +48,52 @@ int main(int argc, char *argv[]) {
     long sel = strtol(in.c_str(), NULL, 10);
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
-    cout << "(running on " << this_address << ")" << endl << endl;
+    cout << "(running on " << this_address << ")" << endl;
     cout << "=========== Menu ===========" << endl;
     cout << " Exit: e " << endl;
     cout << " Server:  s <dmg%> <loss%>  " << endl;
-    cout << " Client:\n  c <address>    " << endl;
+    cout << " Client:\n  c <address>     " << endl;
     cout << "  get <src file> <out file> " << endl;
-    cout << "===========  --  ===========" << endl << endl;
+    cout << "============================" << endl << endl;
     while (exit) {
         cout << ">";
         getline(cin, in);
         for (int i = 0; in[i]; i++)
             in[i] = (char) tolower(in[i]);
+        //Vector of user input (split by spaces, in lowercase)
         vector<string> command = split(in, ' ');
 
         string primary;
+        //primary is the FIRST element in the vector (the main command)
         if (command.empty()) {
             primary = " ";
         } else {
             primary = command[0];
         }
         if (primary == "e") {
-
             //******EXIT******//
+
             exit = false;
             cout << "Goodbye!" << endl;
         } else if (primary == "c") {
-
             //******CLIENT CODE******//
+
             main_client(this_address, command);
 
         } else if (primary == "s") {
-
             //******SERVER CODE******//
-            main_server(this_address, command);
 
+            main_server(this_address, command);
+        } else if (primary == "t") {
+            Sockets::instance()->OpenClient(this_address, PORT_CLIENT);
+            char *c = (char *) "Hello";
+            DataPacket dp(c, strlen(c));
+            dp.SendDelayed();
         } else {
             //******NO COMMAND******//
             continue;
         }
+
     } //***END MAIN WHILE
     return 0;
 }

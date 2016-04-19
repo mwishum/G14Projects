@@ -73,13 +73,14 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 #define NO_CONTENT const_cast<char*>("")
 
 #define PACKET_SIZE 256
+#define WINDOW_SIZE 16
 
 #define TIMEOUT_SEC 1
-#define TIMEOUT_MSEC 0
+#define TIMEOUT_MICRO_SEC 0
 
 #define MAX_LOOPS 1000
 
-enum class StatusResult {
+enum class SR {
     Success,
     Error,
     FatalError,
@@ -90,12 +91,14 @@ enum class StatusResult {
     NotExpectedType,
     OutOfSequence,
     Timeout,
-    Dropped
+    Dropped,
+    Delayed
 };
 
 static std::string StatusMessage[] = {
         "Success", "Error", "FatalError",
         "NotInitialized", "AlreadyInitialized", "CouldNotOpen",
-        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence", "Timeout", "Dropped"};
+        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence",
+        "Timeout", "Dropped", "Delayed"};
 
 #endif

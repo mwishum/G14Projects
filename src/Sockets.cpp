@@ -6,7 +6,7 @@
 // April 15, 2016
 //============================================================================
 
-#include "packets.h"
+#include "Sockets.h"
 
 using namespace std;
 
@@ -14,7 +14,7 @@ Sockets *Sockets::manager = NULL;
 
 Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use_manual_timeout(false) {
     deft_timeout.tv_sec = TIMEOUT_SEC;
-    deft_timeout.tv_usec = TIMEOUT_MSEC;
+    deft_timeout.tv_usec = TIMEOUT_MICRO_SEC;
 }
 
 
@@ -27,9 +27,9 @@ Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use
  *
  * @return status of binding to socket
  */
-StatusResult Sockets::OpenServer(string address_from, uint16_t port) {
+SR Sockets::OpenServer(string address_from, uint16_t port) {
     if (initialized) {
-        return StatusResult::AlreadyInitialized;
+        return SR::AlreadyInitialized;
     }
     side = SERVER;
     struct in_addr adr;
@@ -37,14 +37,14 @@ StatusResult Sockets::OpenServer(string address_from, uint16_t port) {
     socket_id = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_id < 0) {
         perror("error on open socket");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
 
     memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
     server_sock_addr.sin_family = AF_INET;
     if (inet_aton(address_from.c_str(), &adr) == 0) {
         perror("Invalid to address");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
     server_sock_addr.sin_addr = adr;
     server_sock_addr.sin_port = htons(port);
@@ -52,11 +52,11 @@ StatusResult Sockets::OpenServer(string address_from, uint16_t port) {
     int res = bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
         perror("error binding server");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
     initialized = true;
     socket_ready = true;
-    return StatusResult::Success;
+    return SR::Success;
 }
 
 /**
@@ -67,9 +67,9 @@ StatusResult Sockets::OpenServer(string address_from, uint16_t port) {
  *
  * @return status of connecting to socket
  */
-StatusResult Sockets::OpenClient(string address_to, uint16_t port_to) {
+SR Sockets::OpenClient(string address_to, uint16_t port_to) {
     if (initialized) {
-        return StatusResult::AlreadyInitialized;
+        return SR::AlreadyInitialized;
     }
     side = CLIENT;
     struct in_addr adr;
@@ -77,14 +77,14 @@ StatusResult Sockets::OpenClient(string address_to, uint16_t port_to) {
     socket_id = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_id < 0) {
         perror("error on open socket");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
 
     memset(&server_sock_addr, NOTHING, sizeof(server_sock_addr));
     server_sock_addr.sin_family = AF_INET;
     if (inet_aton(address_to.c_str(), &adr) == 0) {
         perror("Invalid to address");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
     server_sock_addr.sin_addr = adr;
     server_sock_addr.sin_port = htons(port_to);
@@ -92,11 +92,11 @@ StatusResult Sockets::OpenClient(string address_to, uint16_t port_to) {
     int res = connect(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
         perror("Error on connect");
-        return StatusResult::CouldNotOpen;
+        return SR::CouldNotOpen;
     }
     initialized = true;
     socket_ready = true;
-    return StatusResult::Success;
+    return SR::Success;
 }
 
 /**
@@ -118,13 +118,15 @@ void Sockets::Close() {
  *
  * @return packet returned by buffer and its size in bufflen. Status of receipt returned.
  */
-StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
+SR Sockets::Receive(char *buffer, size_t *bufflen) {
     if (!initialized) {
-        return StatusResult::NotInitialized;
+        return SR::NotInitialized;
     }
     assert(buffer != NULL);
     assert(*bufflen > 0 && *bufflen <= PACKET_SIZE);
-    memset(buffer, NOTHING, *bufflen); /*Clear buffer that packet will be put in*/
+
+    /*Clear buffer that packet will be put in*/
+    memset(buffer, NOTHING, *bufflen);
     ssize_t res;
 
     if (side == CLIENT) {
@@ -135,18 +137,18 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
 
     if (res < 0) { /*If error occurred*/
         perror("Error on receive");
-        return StatusResult::FatalError;
+        return SR::FatalError;
     }
     buffer[res] = 0; /*Set last byte to null*/
     if (res > PACKET_SIZE) {
         cerr << "PACKET TOO LARGE (" << res << "), DROPPED" << endl;
-        return StatusResult::FatalError;
+        return SR::FatalError;
     }
     *bufflen = (size_t) res; /*Return length via pointer*/
     if (DEBUG) {
-        cout << "recvd packet size" <<  *bufflen << endl;
+        cout << "received packet size: " << *bufflen << endl;
     } /*DEBUG*/
-    return StatusResult::Success;
+    return SR::Success;
 }
 
 /**
@@ -158,7 +160,7 @@ StatusResult Sockets::Receive(char *buffer, size_t *bufflen) {
  *
  * @return packet returned by buffer and its size in bufflen. Status of receipt returned
  */
-StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
+SR Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
     return ReceiveTimeout(buffer, bufflen, deft_timeout);
 }
 
@@ -171,7 +173,7 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen) {
  *
  * @return packet returned by buffer and its size in bufflen. Status of receipt returned
  */
-StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout) {
+SR Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timeval timeout) {
     FD_ZERO (&socks);
     FD_SET(socket_id, &socks);
     struct timeval temp;
@@ -180,9 +182,9 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timev
     int rval = select(socket_id + 1, &socks, NULL, NULL, &temp);
     if (rval < 0) {
         perror("Receive select error");
-        return StatusResult::FatalError;
+        return SR::FatalError;
     } else if (rval == 0) {
-        return StatusResult::Timeout;
+        return SR::Timeout;
     } else {
         return Receive(buffer, bufflen);
     }
@@ -196,16 +198,13 @@ StatusResult Sockets::ReceiveTimeout(char *buffer, size_t *bufflen, struct timev
  *
  * @return Status of sending
  */
-StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
+SR Sockets::Send(char *buffer, size_t *bufflen) {
     if (!initialized) {
-        return StatusResult::NotInitialized;
+        return SR::NotInitialized;
     }
     socklen_t length = sizeof(client_sock_addr);
     if (DEBUG) {
-        cout << "sent packet [begin]";
-        //fwrite(buffer, *bufflen, 1, stdout);
-        dprint("buff len", *bufflen)
-        cout << " " << "[end]" << endl;
+        cout << "sent packet with size " << *bufflen << endl;
     }/*DEBUG*/
     ssize_t res = 0;
     if (side == CLIENT)
@@ -215,9 +214,9 @@ StatusResult Sockets::Send(char *buffer, size_t *bufflen) {
 
     if (res < 0) {
         perror("Error on send");
-        return StatusResult::Error;
+        return SR::Error;
     }
-    return StatusResult::Success;
+    return SR::Success;
 }
 
 Sockets::~Sockets() {
@@ -237,7 +236,7 @@ int Sockets::TestRoundTrip(int side) {
     int trips = 5;
     char dat[] = "start";
     long trip_times[5];
-    StatusResult res;
+    SR res;
     TIME_METHOD::time_point start_time, end_time;
     if (side == CLIENT) {
         dprint("RTTT side", "client")
@@ -247,10 +246,10 @@ int Sockets::TestRoundTrip(int side) {
         dprintm("[c] to server", res)
         res = res = server_resp.Receive();
         dprintm("[c] rcv server", res)
-        if (res == StatusResult::Timeout) {
+        if (res == SR::Timeout) {
             perror("Server did not respond to RTT start");
             return -1;
-        } else if (res != StatusResult::Success) {
+        } else if (res != SR::Success) {
             dprintm("Failed communicating with server", res)
             return -1;
         }
@@ -262,10 +261,10 @@ int Sockets::TestRoundTrip(int side) {
         RTTPacket from_client(ReqType::RTTClient);
         res = from_client.Receive();
         dprintm("[s] rcv client", res)
-        if (res == StatusResult::Timeout) {
+        if (res == SR::Timeout) {
             perror("Client did not respond to RTT start");
             return -1;
-        } else if (res == StatusResult::Success) {
+        } else if (res == SR::Success) {
             RTTPacket my_resp(ReqType::RTTServer);
             res = my_resp.Send();
             dprintm("[s] to client", res)
@@ -289,7 +288,7 @@ int Sockets::TestRoundTrip(int side) {
         RTTPacket in(type_send, p_content, strlen(p_content));
         res = in.Receive();
         dprintm("[l] rcv", res)
-        if (res == StatusResult::Timeout) { /*Select timed out*/
+        if (res == SR::Timeout) { /*Select timed out*/
             perror("SELECT timeout");
             trip_times[trips] = 0;
         } else { /*the socket is ready to be read from*/
@@ -355,17 +354,37 @@ void Sockets::ResetTimeout(long int sec, long int micro_sec) {
  *
  * @return result of awaiting.
  */
-StatusResult Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &type) {
-    if (!this->initialized) return StatusResult::NotInitialized;
-    StatusResult rec = ReceiveTimeout(packet_buf, buff_len);
-    if (rec != StatusResult::Success) return rec;
+
+SR Sockets::AwaitPacket(char *packet_buf, size_t *buff_len, string &type) {
+    if (!this->initialized) return SR::NotInitialized;
+    SR rec = ReceiveTimeout(packet_buf, buff_len);
+    if (rec != SR::Success) return rec;
     DataPacket *temp = new DataPacket();
     temp->packet_size = *buff_len;
     memcpy(temp->packet_buffer, packet_buf, *buff_len);
-    *buff_len = *buff_len;
     temp->ConvertFromBuffer();
     type.clear();
     type.insert(0, temp->type_string, 1);
-    return StatusResult::Success;
+    return SR::Success;
 }
+
+
+SR Sockets::AwaitPacket(DataPacket **packet, string &type) {
+
+    if (!this->initialized) return SR::NotInitialized;
+    char buffer[PACKET_SIZE];
+    size_t *buffer_len = new size_t;
+    *buffer_len = PACKET_SIZE;
+    SR rec = ReceiveTimeout(buffer, buffer_len);
+
+    if (rec != SR::Success) return rec;
+    *packet = new UnknownPacket(buffer, *buffer_len);
+    assert(packet != nullptr);
+    type.clear();
+    type.insert(0, (*packet)->type_string, 1);
+    dprint("await_packet_type", (*packet)->type_string)
+    return SR::Success;
+}
+
+
 
