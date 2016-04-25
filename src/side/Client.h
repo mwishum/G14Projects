@@ -16,10 +16,9 @@
 using namespace std;
 
 inline bool main_client(string this_address, vector<string> &command) {
-    string remote_server_a, file_name, dest_file_name, in, primary;
+    string remote_server_a, file_name, out_file_name, in, primary;
     SR result;
-    char buffer[PACKET_SIZE];
-    size_t buffer_len = PACKET_SIZE;
+
     if (command.size() == 1) {
         cout << "Enter server address: ";
         getline(cin, remote_server_a);
@@ -63,10 +62,10 @@ inline bool main_client(string this_address, vector<string> &command) {
             } else if (command.size() == 2) {
                 file_name = command[1];
                 cout << "Enter dest file name: ";
-                getline(cin, dest_file_name);
+                getline(cin, out_file_name);
             } else {
                 file_name = command[1];
-                dest_file_name = command[2];
+                out_file_name = command[2];
             }
 
             //Find out if file exists on server
@@ -78,7 +77,7 @@ inline bool main_client(string this_address, vector<string> &command) {
             string p_type;
             while (true) {
                 //result = Sockets::instance()->AwaitPacket(buffer, &buffer_len, p_type);
-                DataPacket *packet = nullptr;
+                UnknownPacket *packet = nullptr;
                 result = Sockets::instance()->AwaitPacket(&packet, p_type);
                 assert(packet != nullptr);
                 delete packet;
@@ -141,9 +140,9 @@ inline bool main_client(string this_address, vector<string> &command) {
                 }
             }
 
-            mgr.WriteFile(dest_file_name);
+            mgr.WriteFile(out_file_name);
             mgr.JoinFile(packet_list);
-            cout << "File transfered to `" << dest_file_name << "` successfully." << endl;
+            cout << "File transfered to `" << out_file_name << "` successfully." << endl;
             Sockets::instance()->use_manual_timeout = true;
             Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
             Sockets::instance()->use_manual_timeout = false;
@@ -151,10 +150,6 @@ inline bool main_client(string this_address, vector<string> &command) {
             cout << "[client closed]" << endl;
             return true; //Back to main program loop
         } else {
-            /*if (loops++ >= MAX_LOOPS) {
-                cerr << "Client ran too long." << endl;
-                break;
-            }*/
             continue; //Continue client menu loop
         }
     }
