@@ -18,12 +18,12 @@ class Gremlin {
 
 private:
     static Gremlin *manager;
-    double damage_prob, loss_prob;
+    double damage_prob, loss_prob, delay_prob, delay_time;
     bool initialized;
 
 public:
     Gremlin();
-    SR initialize(double damage_prob, double loss_prob);
+    SR initialize(double damage_prob, double loss_prob, double delay_prob, double delay_time);
     SR tamper(char *buffer, size_t *buff_len);
     static Gremlin *instance() {
         if (manager == NULL) {

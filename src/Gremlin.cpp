@@ -16,19 +16,25 @@ Gremlin::Gremlin() {
     this->initialized = false;
     this->damage_prob = 0;
     this->loss_prob = 0;
+    this->delay_prob = 0;
+    this->delay_time = 0;
 }
 
-SR Gremlin::initialize(double damage_prob, double loss_prob) {
+SR Gremlin::initialize(double damage_prob, double loss_prob, double delay_prob, double delay_time) {
     if (initialized) {
         return SR::AlreadyInitialized;
-    } else if (damage_prob < 0 || damage_prob > 1 || loss_prob < 0 || loss_prob > 1) {
+    } else if (damage_prob < 0 || damage_prob > 1 || loss_prob < 0 || loss_prob > 1 ||
+    		delay_prob < 0 || delay_prob > 1 || delay_time < 0) {
         return SR::Error;
     }
 
-    cout << "Gremlin-> dam=" << damage_prob * 100 << "%  loss=" << loss_prob * 100 << "%" << endl;
+    cout << "Gremlin-> dam=" << damage_prob * 100 << "%  loss=" << loss_prob * 100 << "%  delay=" <<
+    		delay_prob * 100 << "% " << delay_time << "ms" << endl;
 
     this->damage_prob = damage_prob;
     this->loss_prob = loss_prob;
+    this->delay_prob = delay_prob;
+    this->delay_time = delay_time;
     this->initialized = true;
     return SR::Success;
 }
@@ -38,7 +44,12 @@ SR Gremlin::tamper(char *buffer, size_t *buff_len) {
         return SR::NotInitialized;
     }
 
-    //TODO: implement delayed odds in Gremlin
+    // Deciding to delay the packet or not
+    double delay_roll = (rand() % 100 + 1) / 100.0;
+    if (delay_roll <= delay_prob) {
+    	cout << "Packet delayed" << endl;
+    	return SR::Delayed;
+    }
 
     // Deciding to corrupt the packet or not.
     double tamper_roll = (rand() % 100 + 1) / 100.0;
@@ -72,6 +83,6 @@ SR Gremlin::tamper(char *buffer, size_t *buff_len) {
     return SR::Success;
 }
 chrono::milliseconds Gremlin::get_delay() {
-    return chrono::milliseconds(rand() % 200);
+    return chrono::milliseconds(delay_time);
 }
 

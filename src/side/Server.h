@@ -18,7 +18,7 @@
 using namespace std;
 
 inline bool main_server(string this_address, vector<string> &command) {
-    string damage_prob, loss_prob;
+    string damage_prob, loss_prob, delay_prob, delay_time;
     SR result;
     string packet_type;
     char *pack_buffer_a = new char[PACKET_SIZE];
@@ -26,17 +26,24 @@ inline bool main_server(string this_address, vector<string> &command) {
     int loops = 0;
 
     //Decode command
-    if (command.size() < 3) {
+    if (command.size() < 5) {
         cout << "Enter damage probability: ";
         getline(cin, damage_prob);
         cout << "Enter loss probability: ";
         getline(cin, loss_prob);
+        cout << "Enter delay probability: ";
+        getline(cin, delay_prob);
+        cout << "Enter delay time: ";
+        getline(cin, delay_time);
     } else {
         damage_prob = command[1];
         loss_prob = command[2];
+        delay_prob = command[3];
+        delay_time = command[4];
     }
 
-    Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()));
+    Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()),
+    		atof(delay_prob.c_str()), atof(delay_time.c_str()));
     result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start server." << endl;
