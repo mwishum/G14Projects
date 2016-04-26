@@ -21,8 +21,6 @@ inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob, delay_prob, delay_time;
     SR result;
     string packet_type;
-    char *pack_buffer_a = new char[PACKET_SIZE];
-    size_t size;
     int loops = 0;
 
     //Decode command
@@ -55,39 +53,41 @@ inline bool main_server(string this_address, vector<string> &command) {
     cout << "Success starting server." << endl;
 
     while (true) {
-        size = PACKET_SIZE;
-        //TODO: make long await method
-        result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
-        //  dprintm("server await returned", result);
+        UnknownPacket *received = nullptr;
+        result = Sockets::instance()->AwaitPacketForever(&received, packet_type);
+        assert(received != nullptr);
 
         if (result != SR::Success) continue;
+
         dprint("Packet type", packet_type)
         if (packet_type == GREETING) {
-            GreetingPacket hello(NO_CONTENT, 1);
-            hello.DecodePacket(pack_buffer_a, size);
-            hello = GreetingPacket(&this_address[0], this_address.size());
+            received->Sequence(1);
+            received->DecodePacket();
+
+            GreetingPacket hello = GreetingPacket(&this_address[0], this_address.size());
             hello.Send();
         } else if (packet_type == GET_INFO) { // GET FILE INFO
             bool file_exists;
             //Get File Exists Request
-            RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
-            req_info.DecodePacket(pack_buffer_a, size);
+            //RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
+            received->Sequence(1);
+            received->DecodePacket();
 
             //Check actual file exists
             struct stat stat_buff;
             string file_name_from_client;
-            file_name_from_client.insert(0, req_info.Content(), req_info.ContentSize());
+            file_name_from_client.insert(0, received->Content(), received->ContentSize());
             file_exists = (stat(file_name_from_client.c_str(), &stat_buff) == 0);
             cout << "FILE `" << file_name_from_client << "` EXISTS ?";
 
             //Send status of file (Success or Fail)
             send_file_ack_again:
             if (file_exists) {
-                RequestPacket suc(ReqType::Success, req_info.Content(), req_info.ContentSize());
+                RequestPacket suc(ReqType::Success, received->Content(), received->ContentSize());
                 cout << " TRUE" << endl;
                 suc.Send();
             } else {
-                RequestPacket fail(ReqType::Fail, req_info.Content(), req_info.ContentSize());
+                RequestPacket fail(ReqType::Fail, received->Content(), received->ContentSize());
                 cout << " FALSE" << endl;
                 fail.Send();
             }
@@ -98,7 +98,7 @@ inline bool main_server(string this_address, vector<string> &command) {
             dprintm("Client ack file exists", result);
             if (result == SR::Success) {
                 //Back to loop if file doesnt exist.
-                if(!file_exists) continue;
+                if (!file_exists) continue;
 
                 //If file exists and in sync with client, check RTT
                 Sockets::instance()->TestRoundTrip(SERVER);
@@ -122,14 +122,13 @@ inline bool main_server(string this_address, vector<string> &command) {
 
                     //Wait for response from server
 
-                    //TODO: replace with pointer version of await
-                    result = Sockets::instance()->AwaitPacket(pack_buffer_a, &size, packet_type);
-                    //dprintm("server await returned", result)
+                    result = Sockets::instance()->AwaitPacket(&received, packet_type);
+                    assert(&received != nullptr);
 
                     if (packet_type == NO_ACK) {
-                        NakPacket nakPacket(0);
-                        nakPacket.DecodePacket(pack_buffer_a, size);
-                        int seq = nakPacket.Sequence();
+                        received->Sequence(0);
+                        received->DecodePacket();
+                        int seq = received->Sequence();
 
                         if (seq != alt_bit) {
                             cout << "Packet Status: Lost (NAK)" << endl;
@@ -139,9 +138,9 @@ inline bool main_server(string this_address, vector<string> &command) {
 
                         goto send_again;
                     } else if (packet_type == ACK) {
-                        AckPacket ackPacket(0);
-                        ackPacket.DecodePacket(pack_buffer_a, size);
-                        int seq = ackPacket.Sequence();
+                        received->Sequence(0);
+                        received->DecodePacket();
+                        int seq = received->Sequence();
 
                         if (seq != alt_bit) {
                             cout << "Packet Status: Lost/Tampered (ACK)" << endl;
@@ -174,6 +173,7 @@ inline bool main_server(string this_address, vector<string> &command) {
             cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
             break;
         }
+        delete received;
     } //***WHILE
     return true;
 }

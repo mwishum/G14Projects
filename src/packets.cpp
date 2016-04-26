@@ -106,7 +106,7 @@ uint16_t Packet::Checksum() {
         sum += oddbyte;
     }
 
-    sum = (uint16_t)((sum >> 16) + (sum & 0xffff));
+    sum = (uint16_t) ((sum >> 16) + (sum & 0xffff));
     sum = sum + (sum >> 16);
     return ~sum;
 }
@@ -220,7 +220,7 @@ SR Packet::send_delayed(chrono::milliseconds time, Packet p) {
  */
 SR Packet::_send_to_socket() {
     //CALL FINALIZE BEFORE
-    return Sockets::instance()->Send(packet_buffer, &packet_size);
+    return Sockets::instance()->Send(packet_buffer, packet_size);
 }
 
 /**
@@ -231,7 +231,7 @@ SR Packet::_send_to_socket() {
  */
 SR Packet::Receive() {
     packet_size = PACKET_SIZE;
-    SR res = Sockets::instance()->ReceiveTimeout(packet_buffer, &packet_size);
+    SR res = Sockets::instance()->ReceiveTimeout(packet_buffer, packet_size);
     if (res != SR::Success) {
         return res;
     } else
@@ -389,10 +389,15 @@ GreetingPacket::GreetingPacket(char *data, size_t data_len) : DataPacket(data, d
 }
 
 
-UnknownPacket::UnknownPacket() : DataPacket() {
+UnknownPacket::UnknownPacket() : DataPacket() { }
 
-}
-
+/**
+ * Constructor for Unknown Packet
+ * Converts this packet to the type contained in the buffer.
+ *
+ * @param packet_buffer buffer to a packet
+ * @param buf_length length of specified packet buffer
+ */
 UnknownPacket::UnknownPacket(char *packet_buffer, size_t buf_length) : DataPacket() {
     packet_size = buf_length;
     memcpy(this->packet_buffer, packet_buffer, buf_length);
