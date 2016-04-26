@@ -15,6 +15,82 @@
 
 using namespace std;
 
+/**
+ * Represents the Go Back N Protocol for the client.
+ *
+ * @param mgr FileManager instance
+ * @param filename name of file requesting FROM server
+ * @param out_file_name file name to write to
+ *
+ * @return SR status of transmission
+ */
+inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &out_file_name) {
+    SR result;
+
+    uint8_t alt_bit = 1;
+    vector<DataPacket> packet_list;
+
+    //TODO: Write the GBN Protocol
+
+    while (true) {
+        if (alt_bit == 1) {
+            alt_bit = 0;
+        } else alt_bit = 1;
+
+        receive_more:
+
+        DataPacket pack(NO_CONTENT, 0);
+        pack.Sequence(alt_bit);
+        result = pack.Receive();
+
+        if (pack.ContentSize() == 0) { // BREAK ON THIS
+            RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
+            suc.Send();
+            break;
+        }
+
+        dprintm("Status Result (CLIENT)", result);
+
+        if (result == SR::Success) {
+            packet_list.push_back(pack);
+            AckPacket packet = AckPacket(alt_bit);
+            packet.Send();
+            continue;
+        } else if (result == SR::ChecksumDoesNotMatch) {
+            NakPacket packet = NakPacket(alt_bit);
+            packet.Send();
+            //PRINTED IN DECODE
+            cout << " Seq#:" << (int) alt_bit << endl;
+            goto receive_more;
+        } else if (result == SR::OutOfSequence) {
+            NakPacket packet = NakPacket(alt_bit);
+            packet.Send();
+            //PRINTED IN DECODE
+            cout << " Seq#:" << (int) alt_bit << endl;
+            goto receive_more;
+        } else {
+            dprintm("RECEIVE FILE LOOP ELSE", result)
+            goto receive_more;
+        }
+    }
+
+    mgr.WriteFile(out_file_name);
+    mgr.JoinFile(packet_list);
+    cout << "File transferred to `" << out_file_name << "` successfully." << endl;
+    //TODO: Check logic of timeouts
+    Sockets::instance()->use_manual_timeout = true;
+    Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
+    Sockets::instance()->use_manual_timeout = false;
+    return SR::Success;
+}
+
+/**
+ * Starts the main client loop.
+ *
+ * @param this_address string representing server address
+ * @param command vector list of command arguments
+ *
+ */
 inline bool main_client(string this_address, vector<string> &command) {
     string remote_server_a, file_name, out_file_name, in, primary;
     SR result;
@@ -95,57 +171,8 @@ inline bool main_client(string this_address, vector<string> &command) {
                 }
             }
 
-            uint8_t alt_bit = 1;
-            vector<DataPacket> packet_list;
+            GoBackNProtocol_Client(mgr, file_name, out_file_name);
 
-            while (true) {
-                if (alt_bit == 1) {
-                    alt_bit = 0;
-                } else alt_bit = 1;
-
-                receive_more:
-
-                DataPacket pack(NO_CONTENT, 0);
-                pack.Sequence(alt_bit);
-                result = pack.Receive();
-
-                if (pack.ContentSize() == 0) { // BREAK ON THIS
-                    RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
-                    suc.Send();
-                    break;
-                }
-
-                dprintm("Status Result (CLIENT)", result);
-
-                if (result == SR::Success) {
-                    packet_list.push_back(pack);
-                    AckPacket packet = AckPacket(alt_bit);
-                    packet.Send();
-                    continue;
-                } else if (result == SR::ChecksumDoesNotMatch) {
-                    NakPacket packet = NakPacket(alt_bit);
-                    packet.Send();
-                    //PRINTED IN DECODE
-                    cout << " Seq#:" << (int) alt_bit << endl;
-                    goto receive_more;
-                } else if (result == SR::OutOfSequence) {
-                    NakPacket packet = NakPacket(alt_bit);
-                    packet.Send();
-                    //PRINTED IN DECODE
-                    cout << " Seq#:" << (int) alt_bit << endl;
-                    goto receive_more;
-                } else {
-                    dprintm("RECEIVE FILE LOOP ELSE", result)
-                    goto receive_more;
-                }
-            }
-
-            mgr.WriteFile(out_file_name);
-            mgr.JoinFile(packet_list);
-            cout << "File transfered to `" << out_file_name << "` successfully." << endl;
-            Sockets::instance()->use_manual_timeout = true;
-            Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
-            Sockets::instance()->use_manual_timeout = false;
         } else if (primary == "e") {
             cout << "[client closed]" << endl;
             return true; //Back to main program loop

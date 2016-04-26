@@ -17,6 +17,88 @@
 
 using namespace std;
 
+/**
+ * Represents the Go Back N Protocol for the server.
+ *
+ * @param mgr FileManager instance
+ * @param filename filename to send to client
+ *
+ * @return SR status of transmission
+ */
+inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
+    UnknownPacket *received = nullptr;
+    string packet_type;
+    SR result;
+
+    mgr.ReadFile(filename);
+    vector<DataPacket> packet_list;
+    mgr.BreakFile(packet_list);
+    uint8_t alt_bit = 1;
+
+    //TODO: Write the GBN Protocol
+
+    for (int i = 0; i < packet_list.size(); i++) {
+        DataPacket packet = packet_list[i];
+
+        if (alt_bit == 1) {
+            alt_bit = 0;
+        } else alt_bit = 1;
+
+        send_again:
+
+        packet.Sequence(alt_bit);
+        packet.Send();
+
+        //Wait for response from server
+
+        result = Sockets::instance()->AwaitPacket(&received, packet_type);
+        assert(&received != nullptr);
+
+        if (packet_type == NO_ACK) {
+            received->Sequence(0);
+            received->DecodePacket();
+            int seq = received->Sequence();
+
+            if (seq != alt_bit) {
+                cout << "Packet Status: Lost (NAK)" << endl;
+                cout << "Sequence number: " << seq << endl;
+                cout << "Expected number: " << (int) alt_bit << endl;
+            }
+
+            goto send_again;
+        } else if (packet_type == ACK) {
+            received->Sequence(0);
+            received->DecodePacket();
+            int seq = received->Sequence();
+
+            if (seq != alt_bit) {
+                cout << "Packet Status: Lost/Tampered (ACK)" << endl;
+                cout << "Sequence number: " << seq << endl;
+                cout << "Expected number: " << (int) alt_bit << endl;
+                goto send_again;
+            }
+
+            continue;
+        } else if (result == SR::Timeout) {
+            goto send_again;
+        } else if (packet_type == GET_SUCCESS) {
+            break;
+        } else {
+            cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
+            goto send_again;
+        }
+    } //END PACKET LOOP
+    delete received;
+    return SR::Success;
+}
+
+/**
+ * Starts the main server loop.
+ *
+ * @param this_address string representing server address
+ * @param command vector list of command arguments
+ *
+ */
 inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob, delay_prob, delay_time;
     SR result;
@@ -41,7 +123,7 @@ inline bool main_server(string this_address, vector<string> &command) {
     }
 
     Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()),
-    		atof(delay_prob.c_str()), atof(delay_time.c_str()));
+                                    atof(delay_prob.c_str()), atoi(delay_time.c_str()));
     result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start server." << endl;
@@ -54,12 +136,13 @@ inline bool main_server(string this_address, vector<string> &command) {
 
     while (true) {
         UnknownPacket *received = nullptr;
+        //Wait for any packet, forever
         result = Sockets::instance()->AwaitPacketForever(&received, packet_type);
-        assert(received != nullptr);
 
         if (result != SR::Success) continue;
+        assert(received != nullptr);
 
-        dprint("Packet type", packet_type)
+        dprint("server received type", packet_type)
         if (packet_type == GREETING) {
             received->Sequence(1);
             received->DecodePacket();
@@ -103,63 +186,12 @@ inline bool main_server(string this_address, vector<string> &command) {
                 //If file exists and in sync with client, check RTT
                 Sockets::instance()->TestRoundTrip(SERVER);
 
-                mgr.ReadFile(file_name_from_client);
-                vector<DataPacket> packet_list;
-                mgr.BreakFile(packet_list);
-                uint8_t alt_bit = 1;
+                result = GoBackNProtocol_Server(mgr,file_name_from_client);
 
-                for (int i = 0; i < packet_list.size(); i++) {
-                    DataPacket packet = packet_list[i];
+                if(result == SR::Success) {
+                    cout << "Finished file transmission successfully." << endl;
+                }
 
-                    if (alt_bit == 1) {
-                        alt_bit = 0;
-                    } else alt_bit = 1;
-
-                    send_again:
-
-                    packet.Sequence(alt_bit);
-                    packet.Send();
-
-                    //Wait for response from server
-
-                    result = Sockets::instance()->AwaitPacket(&received, packet_type);
-                    assert(&received != nullptr);
-
-                    if (packet_type == NO_ACK) {
-                        received->Sequence(0);
-                        received->DecodePacket();
-                        int seq = received->Sequence();
-
-                        if (seq != alt_bit) {
-                            cout << "Packet Status: Lost (NAK)" << endl;
-                            cout << "Sequence number: " << seq << endl;
-                            cout << "Expected number: " << (int) alt_bit << endl;
-                        }
-
-                        goto send_again;
-                    } else if (packet_type == ACK) {
-                        received->Sequence(0);
-                        received->DecodePacket();
-                        int seq = received->Sequence();
-
-                        if (seq != alt_bit) {
-                            cout << "Packet Status: Lost/Tampered (ACK)" << endl;
-                            cout << "Sequence number: " << seq << endl;
-                            cout << "Expected number: " << (int) alt_bit << endl;
-                            goto send_again;
-                        }
-
-                        continue;
-                    } else if (result == SR::Timeout) {
-                        goto send_again;
-                    } else if (packet_type == GET_SUCCESS) {
-                        break;
-                    } else {
-                        cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
-                        goto send_again;
-                    }
-                } //END PACKET LOOP
-                cout << "Finished file transmission successfully." << endl;
             } //**RESULT == SUCCESS
             else { // NOT SUCCESS
                 cout << "Sending File status Again" << endl;

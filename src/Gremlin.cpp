@@ -20,7 +20,7 @@ Gremlin::Gremlin() {
     this->delay_time = 0;
 }
 
-SR Gremlin::initialize(double damage_prob, double loss_prob, double delay_prob, double delay_time) {
+SR Gremlin::initialize(double damage_prob, double loss_prob, double delay_prob, int delay_time) {
     if (initialized) {
         return SR::AlreadyInitialized;
     } else if (damage_prob < 0 || damage_prob > 1 || loss_prob < 0 || loss_prob > 1 ||
