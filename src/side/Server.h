@@ -40,14 +40,14 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
     uint32_t sent_packet_num = 0;
     uint8_t window_roll_overs = 0;
 
-    vector<TIME_METHOD::time_point> sent_times;
+//    vector<TIME_METHOD::time_point> sent_times;
 
     while (1) {
         for (int i = sequence_num; i != ((window_start + WINDOW_SIZE - 1) % SEQUENCE_MAX); i = (i + 1) % SEQUENCE_MAX) {
             DataPacket packet = packet_list[sent_packet_num];
             packet.Sequence(sequence_num);
             packet.Send();
-            sent_times.push_back(TIME_METHOD::now());
+//            sent_times.push_back(TIME_METHOD::now());
             sent_packet_num++;
             if (++sequence_num % 32 == 0) {
                 window_roll_overs++;
@@ -59,22 +59,22 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         dprintm("GBN Await", result);
         dprint("received address", &received);
 
-        TIME_METHOD::time_point recv_time = TIME_METHOD::now();
-        chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
-        sent_times.pop_back();
-
-        if (span.count() > Sockets::instance()->rtt_determined.tv_usec) {
-            received->DecodePacket();
-            if (sequence_num < received->Sequence()) {
-                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
-                window_roll_overs--;
-                sequence_num = received->Sequence();
-            } else {
-                sent_packet_num = received->Sequence();
-                sequence_num = received->Sequence();
-            }
-            continue;
-        }
+//        TIME_METHOD::time_point recv_time = TIME_METHOD::now();
+//        chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
+//        sent_times.pop_back();
+//
+//        if (span.count() > Sockets::instance()->rtt_determined.tv_usec) {
+//            received->DecodePacket();
+//            if (sequence_num < received->Sequence()) {
+//                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
+//                window_roll_overs--;
+//                sequence_num = received->Sequence();
+//            } else {
+//                sent_packet_num = received->Sequence();
+//                sequence_num = received->Sequence();
+//            }
+//            continue;
+//        }
 
         if (packet_type == NO_ACK) { // Resend packets starting from sequence number
             received->DecodePacket();
@@ -86,10 +86,15 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 sent_packet_num = received->Sequence();
                 sequence_num = received->Sequence();
             }
-            sent_times.clear();
+//            sent_times.clear();
             continue;
         } else if (packet_type == ACK) {
             received->DecodePacket();
+            if (received->Sequence() == 32) { // Special case - first packet out of sequence
+                sent_packet_num = 0;
+                sequence_num = 0;
+                continue;
+            }
             last_ack_num = received->Sequence();
             window_start = received->Sequence();
             continue;

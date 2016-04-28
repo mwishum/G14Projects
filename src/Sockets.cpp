@@ -349,7 +349,7 @@ SR Sockets::AwaitPacket(UnknownPacket **packet, string &type) {
 
     type.clear();
     type.insert(0, (*packet)->type_string, 1);
-    dprint("await_packet_type", (*packet)->type_string)
+    //dprint("await_packet_type", (*packet)->type_string)
     return SR::Success;
 }
 

@@ -27,7 +27,7 @@ using namespace std;
 inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &out_file_name) {
     SR result;
     UnknownPacket* received;
-    string packet_type;
+    string packet_type = "D";
 
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
