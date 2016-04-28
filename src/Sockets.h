@@ -30,7 +30,7 @@ class Sockets {
     bool socket_ready;
     bool initialized;
     fd_set socks;
-    struct timeval deft_timeout, rtt_determined;
+    struct timeval deft_timeout;
 
 public:
     Sockets();
@@ -54,6 +54,7 @@ public:
         return manager;
     }
     bool use_manual_timeout;
+    struct timeval rtt_determined;
 };
 
 #endif /* SOCKETS_H_ */

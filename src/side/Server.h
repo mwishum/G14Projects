@@ -33,61 +33,84 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
     mgr.ReadFile(filename);
     vector<DataPacket> packet_list;
     mgr.BreakFile(packet_list);
-    uint8_t alt_bit = 1;
+
+    uint8_t sequence_num = 0;
+    uint8_t last_ack_num = 32;
+    uint8_t window_start = 0;
+    uint32_t sent_packet_num = 0;
+    uint8_t window_roll_overs = 0;
+
+    vector<TIME_METHOD::time_point>sent_times;
 
     //TODO: Write the GBN Protocol
 
-    for (int i = 0; i < packet_list.size(); i++) {
-        DataPacket packet = packet_list[i];
-
-        if (alt_bit == 1) {
-            alt_bit = 0;
-        } else alt_bit = 1;
-
-        send_again:
-
-        packet.Sequence(alt_bit);
-        packet.Send();
-
-        //Wait for response from server
+    while (1) {
+        for (int i = sequence_num; i != ((window_start + WINDOW_SIZE - 1) % SEQUENCE_MAX); i = (i + 1) % SEQUENCE_MAX) {
+            DataPacket packet = packet_list[sent_packet_num];
+            packet.Sequence(sequence_num);
+            packet.Send();
+            sent_times.push_back(TIME_METHOD::now());
+            sent_packet_num++;
+            if (++sequence_num % 32 == 0) {
+                window_roll_overs++;
+            }
+        }
 
         result = Sockets::instance()->AwaitPacket(&received, packet_type);
         assert(&received != nullptr);
 
-        if (packet_type == NO_ACK) {
-            received->Sequence(0);
+        TIME_METHOD::time_point recv_time = TIME_METHOD::now();
+        chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
+        sent_times.pop_back();
+
+        if (span.count() > Sockets::instance()->rtt_determined.tv_usec) {
             received->DecodePacket();
-            int seq = received->Sequence();
-
-            if (seq != alt_bit) {
-                cout << "Packet Status: Lost (NAK)" << endl;
-                cout << "Sequence number: " << seq << endl;
-                cout << "Expected number: " << (int) alt_bit << endl;
+            if (sequence_num < received->Sequence()) {
+                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
+                window_roll_overs--;
+                sequence_num = received->Sequence();
+            } else {
+                sent_packet_num = received->Sequence();
+                sequence_num = received->Sequence();
             }
+            continue;
+        }
 
-            goto send_again;
+        if (packet_type == NO_ACK) { // Resend packets starting from sequence number
+            received->DecodePacket();
+            if (sequence_num < received->Sequence()) {
+                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
+                window_roll_overs--;
+                sequence_num = received->Sequence();
+            } else {
+                sent_packet_num = received->Sequence();
+                sequence_num = received->Sequence();
+            }
+            sent_times.clear();
+            continue;
         } else if (packet_type == ACK) {
-            received->Sequence(0);
             received->DecodePacket();
-            int seq = received->Sequence();
-
-            if (seq != alt_bit) {
-                cout << "Packet Status: Lost/Tampered (ACK)" << endl;
-                cout << "Sequence number: " << seq << endl;
-                cout << "Expected number: " << (int) alt_bit << endl;
-                goto send_again;
-            }
-
+            last_ack_num = received->Sequence();
+            window_start = received->Sequence();
             continue;
         } else if (result == SR::Timeout) {
-            goto send_again;
+            if (sequence_num < (uint8_t) ((last_ack_num + 1) % 32)) {
+                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + (uint8_t) ((last_ack_num + 1) % 32);
+                window_roll_overs--;
+                sequence_num = (uint8_t) ((last_ack_num + 1) % 32);
+            } else {
+                sequence_num = (uint8_t) ((last_ack_num + 1) % 32);
+                sent_packet_num = sequence_num;
+            }
+            continue;
         } else if (packet_type == GET_SUCCESS) {
             break;
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
-            goto send_again;
+            continue;
         }
     } //END PACKET LOOP
+
     delete received;
     return SR::Success;
 }

@@ -150,8 +150,8 @@ SR Sockets::Receive(char *buffer, size_t &buf_length) {
 }
 
 /**
- * Blocks while waiting to receive a packet. Returns after default
- * Sockets timeout has elapses
+ * Blocks execution while waiting to receive a packet. Returns after the default
+ * Sockets.cpp timeout has elapsed.
  *
  * @param buffer Packet buffer returned
  * @param bufflen Length of packet expected, actual length returned via
