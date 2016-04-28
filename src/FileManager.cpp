@@ -66,7 +66,7 @@ SR FileManager::BreakFile(vector<DataPacket> &packs) {
     }
     in_file.seekg(0, ios::end);
     streamoff file_size = in_file.tellg();
-    dprint("File Size:", file_size)
+    dprint("File Size", file_size)
     in_file.seekg(0, ios::beg);
     while (in_file.tellg() < file_size) {
         size_t rem = (size_t) file_size - in_file.tellg();
@@ -83,7 +83,7 @@ SR FileManager::BreakFile(vector<DataPacket> &packs) {
 
         in_file.read(file_buffer, Packet::max_content());
         packs.push_back(DataPacket(file_buffer, Packet::max_content()));
-        dprint("pack #", packs.size())
+        //dprint("pack #", packs.size())
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);

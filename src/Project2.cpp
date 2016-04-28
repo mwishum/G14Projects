@@ -49,11 +49,12 @@ int main(int argc, char *argv[]) {
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
     cout << "(running on " << this_address << ")" << endl;
+    cout << "Project 2: FTP using GBN" <<endl;
     cout << "=========== Menu ===========" << endl;
-    cout << " Exit: e " << endl;
-    cout << " Server:  s <dmg%> <loss%>  " << endl;
-    cout << " Client:\n  c <address>     " << endl;
-    cout << "  get <src file> <out file> " << endl;
+    cout << "Exit: e " << endl;
+    cout << "Server:\n s <dmg%> <loss%> <delay%> <delay ms> " << endl;
+    cout << "Client:\n c <address>     " << endl;
+    cout << " get <src file> <out file> " << endl;
     cout << "============================" << endl << endl;
     while (exit) {
         cout << ">";
@@ -72,7 +73,6 @@ int main(int argc, char *argv[]) {
         }
         if (primary == "e") {
             //******EXIT******//
-
             exit = false;
             cout << "Goodbye!" << endl;
         } else if (primary == "c") {

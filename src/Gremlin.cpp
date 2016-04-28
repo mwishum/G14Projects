@@ -28,7 +28,7 @@ SR Gremlin::initialize(double damage_prob, double loss_prob, double delay_prob, 
         return SR::Error;
     }
 
-    cout << "Gremlin-> dam=" << damage_prob * 100 << "%  loss=" << loss_prob * 100 << "%  delay=" <<
+    cout << "Gremlin: dam=" << damage_prob * 100 << "%  loss=" << loss_prob * 100 << "%  delay=" <<
     		delay_prob * 100 << "% " << delay_time << "ms" << endl;
 
     this->damage_prob = damage_prob;

@@ -10,7 +10,7 @@
 
 Sockets *Sockets::manager = NULL;
 
-Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use_manual_timeout(false) {
+Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false) {
     deft_timeout.tv_sec = TIMEOUT_SEC;
     deft_timeout.tv_usec = TIMEOUT_MICRO_SEC;
 }
@@ -34,7 +34,7 @@ SR Sockets::OpenServer(string address_from, uint16_t port) {
 
     socket_id = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_id < 0) {
-        perror("error on open socket");
+        perror("Error on open socket");
         return SR::CouldNotOpen;
     }
 
@@ -49,7 +49,7 @@ SR Sockets::OpenServer(string address_from, uint16_t port) {
 
     int res = ::bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
-        perror("error binding server");
+        perror("Error binding server");
         return SR::CouldNotOpen;
     }
     initialized = true;
@@ -74,7 +74,7 @@ SR Sockets::OpenClient(string address_to, uint16_t port_to) {
 
     socket_id = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_id < 0) {
-        perror("error on open socket");
+        perror("Error on open socket");
         return SR::CouldNotOpen;
     }
 
@@ -139,11 +139,11 @@ SR Sockets::Receive(char *buffer, size_t &buf_length) {
     }
     buffer[res] = 0; /*Set last byte to null*/
     if (res > PACKET_SIZE) {
-        cerr << "PACKET TOO LARGE (" << res << "), DROPPED" << endl;
+        cerr << "[FATAL] Packet too large (" << res << "), not processed." << endl;
         return SR::FatalError;
     }
     buf_length = (size_t) res; /*Return length via pointer*/
-    dprintm("received packet size", buf_length)
+    dprint("received packet size", buf_length)
     return SR::Success;
 }
 
@@ -165,7 +165,7 @@ SR Sockets::ReceiveTimeout(char *buffer, size_t &bufflen) {
  *
  * @param buffer Packet buffer returned
  * @param bufflen Length of packet expected, actual length returned via
- * @param timeout Time to wait before returning (sec and mirco sec)
+ * @param timeout Time to wait before returning (sec and micro sec)
  *
  * @return packet returned by buffer and its size in bufflen. Status of receipt returned
  */
@@ -177,7 +177,7 @@ SR Sockets::ReceiveTimeout(char *buffer, size_t &bufflen, struct timeval timeout
     temp.tv_sec = timeout.tv_sec;
     int rval = select(socket_id + 1, &socks, NULL, NULL, &temp);
     if (rval < 0) {
-        perror("Receive select error");
+        perror("[FATAL] Receive select error");
         return SR::FatalError;
     } else if (rval == 0) {
         return SR::Timeout;
@@ -200,7 +200,7 @@ SR Sockets::Send(char *buffer, size_t &bufflen) {
     }
     socklen_t length = sizeof(client_sock_addr);
     if (DEBUG) {
-        cout << "sent packet with size " << bufflen << endl;
+        cout << "Sent packet with size " << bufflen << endl;
     }/*DEBUG*/
     ssize_t res = 0;
     if (side == CLIENT)
@@ -227,8 +227,7 @@ Sockets::~Sockets() {
  * @return int Average RTT
  */
 int Sockets::TestRoundTrip(int side) {
-    use_manual_timeout = true;
-    ResetTimeout(10, 0);
+    UseTimeout(10, 0);
     int trips = 5;
     char dat[] = "start";
     long trip_times[5];
@@ -251,7 +250,7 @@ int Sockets::TestRoundTrip(int side) {
     }
 
     if (side == SERVER) {
-        ResetTimeout(10, 0);
+        UseTimeout(5, 0);
         dprint("RTTT side", "server")
         RTTPacket from_client(ReqType::RTTClient);
         res = from_client.Receive();
@@ -270,7 +269,7 @@ int Sockets::TestRoundTrip(int side) {
     }
     dprint("starting", "RTT loop")
     while (trips-- > 0) {
-        ResetTimeout(3, 0);
+        UseTimeout(3, 0);
         char p_content[2];
         sprintf(p_content, "%d", trips);
         ReqType type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
@@ -285,7 +284,7 @@ int Sockets::TestRoundTrip(int side) {
         if (res == SR::Timeout) { /* Select timed out */
             perror("RTT timeout");
             trip_times[trips] = 0;
-        } else { /* the socket is ready to be read from */
+        } else { /* successful receive */
             end_time = TIME_METHOD::now();
             chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
             trip_times[trips] = span.count();
@@ -313,30 +312,22 @@ int Sockets::TestRoundTrip(int side) {
 
     rtt_determined.tv_usec = average * 2;
     rtt_determined.tv_sec = 0;
-    cout << "Round trip time = " << average << " microseconds" << endl;
-
-    use_manual_timeout = false;
-    ResetTimeout(0, 0);
+    cout << "Round trip time = " << average << " microseconds ";
+    chrono::milliseconds span = chrono::duration_cast<chrono::milliseconds>(chrono::microseconds(average * 2));
+    cout << "(" << span.count() << "ms)" << endl;
+    UseTimeout(0, average * 2);
     return average;
 }
 
 /**
- * Resets the timeout of recv/send calls
- * Calling this resets the default timeout to the rtt determined one
- * UNLESS use_manual_timeout is called
+ * Sets the default timeout of this Sockets instance.
  *
  * @param sec Seconds of timeout
- * @param micro_se Microseconds of timeout
+ * @param micro_sec Microseconds of timeout
  */
-void Sockets::ResetTimeout(long int sec, long int micro_sec) {
-    if (use_manual_timeout) {
-        deft_timeout.tv_sec = sec;
-        deft_timeout.tv_usec = micro_sec;
-    }
-    else {
-        deft_timeout.tv_sec = rtt_determined.tv_sec;
-        deft_timeout.tv_usec = rtt_determined.tv_usec;
-    }
+void Sockets::UseTimeout(long int sec, long int micro_sec) {
+    deft_timeout.tv_sec = sec;
+    deft_timeout.tv_usec = micro_sec;
 }
 
 /**

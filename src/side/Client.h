@@ -82,10 +82,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
     mgr.WriteFile(out_file_name);
     mgr.JoinFile(packet_list);
     cout << "File transferred to `" << out_file_name << "` successfully." << endl;
-    //TODO: Check logic of timeouts
-    Sockets::instance()->use_manual_timeout = true;
-    Sockets::instance()->ResetTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
-    Sockets::instance()->use_manual_timeout = false;
+    Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
     return SR::Success;
 }
 
@@ -110,10 +107,12 @@ inline bool main_client(string this_address, vector<string> &command) {
     FileManager mgr(CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start Client." << endl;
+        dprintm("client",result);
         return true;
     }
     cout << "Success starting client." << endl;
-
+    cout << "Trying to contact server:" <<endl;
+    bool connected = false;
     for (int tries = 5; tries >= 0; tries--) {
         GreetingPacket hello(&this_address[0], this_address.size());
         hello.Send();
@@ -124,12 +123,16 @@ inline bool main_client(string this_address, vector<string> &command) {
             cout << "Server ";
             fwrite(hello.Content(), hello.ContentSize(), 1, stdout);
             cout << " responded." << endl;
+            connected = true;
             break;
         }
     }
+
+    //Exit client if could not contact server
+    if(!connected) return false;
+
     while (true) {
         client:
-        //int loops = 0;
         cout << ">>";
         getline(cin, in);
         command.clear();
@@ -157,7 +160,6 @@ inline bool main_client(string this_address, vector<string> &command) {
 
             string p_type;
             while (true) {
-                //result = Sockets::instance()->AwaitPacket(buffer, &buffer_len, p_type);
                 UnknownPacket *packet;
                 result = Sockets::instance()->AwaitPacket(&packet, p_type);
                 delete packet;
@@ -179,6 +181,7 @@ inline bool main_client(string this_address, vector<string> &command) {
 
         } else if (primary == "e") {
             cout << "[client closed]" << endl;
+            Sockets::instance()->Close();
             return true; //Back to main program loop
         } else {
             continue; //Continue client menu loop

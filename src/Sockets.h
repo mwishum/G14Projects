@@ -45,7 +45,7 @@ public:
     SR AwaitPacketForever(UnknownPacket **packet, string &type);
     SR Send(char *buffer, size_t &buff_len);
     int TestRoundTrip(int side);
-    void ResetTimeout(long int sec, long int micro_sec);
+    void UseTimeout(long int sec, long int micro_sec);
     int GetSide() { return side; }
     static Sockets *instance() {
         if (manager == NULL) {
@@ -53,7 +53,6 @@ public:
         }
         return manager;
     }
-    bool use_manual_timeout;
     struct timeval rtt_determined;
 };
 

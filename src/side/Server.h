@@ -40,9 +40,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
     uint32_t sent_packet_num = 0;
     uint8_t window_roll_overs = 0;
 
-    vector<TIME_METHOD::time_point>sent_times;
-
-    //TODO: Write the GBN Protocol
+    vector<TIME_METHOD::time_point> sent_times;
 
     while (1) {
         for (int i = sequence_num; i != ((window_start + WINDOW_SIZE - 1) % SEQUENCE_MAX); i = (i + 1) % SEQUENCE_MAX) {
@@ -56,7 +54,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
         }
 
+        dprint("received address", &received);
         result = Sockets::instance()->AwaitPacket(&received, packet_type);
+        dprintm("GBN Await", result);
+        dprint("received address", &received);
 
         TIME_METHOD::time_point recv_time = TIME_METHOD::now();
         chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
@@ -144,8 +145,12 @@ inline bool main_server(string this_address, vector<string> &command) {
         delay_time = command[4];
     }
 
-    Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()),
-                                    atof(delay_prob.c_str()), atoi(delay_time.c_str()));
+    result = Gremlin::instance()->initialize(atof(damage_prob.c_str()), atof(loss_prob.c_str()),
+                                             atof(delay_prob.c_str()), atoi(delay_time.c_str()));
+    if (result != SR::Success) {
+        cerr << "Could not start Gremlin." << endl;
+        return true;
+    }
     result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start server." << endl;
@@ -165,7 +170,7 @@ inline bool main_server(string this_address, vector<string> &command) {
 
         dprint("server received type", packet_type)
         if (packet_type == GREETING) {
-            received->Sequence(1);
+            received->Sequence(0);
             received->DecodePacket();
 
             GreetingPacket hello = GreetingPacket(&this_address[0], this_address.size());
@@ -207,9 +212,9 @@ inline bool main_server(string this_address, vector<string> &command) {
                 //If file exists and in sync with client, check RTT
                 Sockets::instance()->TestRoundTrip(SERVER);
 
-                result = GoBackNProtocol_Server(mgr,file_name_from_client);
+                result = GoBackNProtocol_Server(mgr, file_name_from_client);
 
-                if(result == SR::Success) {
+                if (result == SR::Success) {
                     cout << "Finished file transmission successfully." << endl;
                 }
 
@@ -223,7 +228,7 @@ inline bool main_server(string this_address, vector<string> &command) {
         else {
         }
         if (loops++ >= MAX_LOOPS) {
-            cout << "Server ran too long. (" << MAX_LOOPS << ")\n";
+            cout << "Server ran too long. (>" << MAX_LOOPS << ")\n";
             break;
         }
         delete received;
