@@ -74,6 +74,7 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 
 #define PACKET_SIZE 256
 #define WINDOW_SIZE 16
+#define SEQUENCE_MAX 32
 
 #define TIMEOUT_SEC 1
 #define TIMEOUT_MICRO_SEC 0

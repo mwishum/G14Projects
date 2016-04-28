@@ -26,24 +26,25 @@ using namespace std;
  */
 inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &out_file_name) {
     SR result;
+    UnknownPacket* received;
+    string packet_type;
 
-    uint8_t alt_bit = 1;
+    uint8_t exp_sequence_num = 0;
+    uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
 
-    //TODO: Write the GBN Protocol
-
     while (true) {
-        if (alt_bit == 1) {
-            alt_bit = 0;
-        } else alt_bit = 1;
+        result = Sockets::instance()->AwaitPacket(&received, packet_type);
 
-        receive_more:
+        // Checking the await result
+        if (result != SR::Success) {
+            continue;
+        }
 
-        DataPacket pack(NO_CONTENT, 0);
-        pack.Sequence(alt_bit);
-        result = pack.Receive();
+        received->Sequence(exp_sequence_num);
+        result = received->DecodePacket();
 
-        if (pack.ContentSize() == 0) { // BREAK ON THIS
+        if (received->ContentSize() == 0) { // BREAK ON THIS
             RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
             suc.Send();
             break;
@@ -52,27 +53,31 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         dprintm("Status Result (CLIENT)", result);
 
         if (result == SR::Success) {
-            packet_list.push_back(pack);
-            AckPacket packet = AckPacket(alt_bit);
+            packet_list.push_back(*received);
+
+            last_seq_num = exp_sequence_num;
+            if (exp_sequence_num == SEQUENCE_MAX - 1) {
+                exp_sequence_num = 0;
+            } else exp_sequence_num++;
+
+            AckPacket packet = AckPacket(exp_sequence_num);
             packet.Send();
-            continue;
         } else if (result == SR::ChecksumDoesNotMatch) {
-            NakPacket packet = NakPacket(alt_bit);
+            NakPacket packet = NakPacket(exp_sequence_num);
             packet.Send();
             //PRINTED IN DECODE
-            cout << " Seq#:" << (int) alt_bit << endl;
-            goto receive_more;
+            cout << " Seq#:" << (int) exp_sequence_num << endl;
         } else if (result == SR::OutOfSequence) {
-            NakPacket packet = NakPacket(alt_bit);
+            AckPacket packet = AckPacket(last_seq_num);
             packet.Send();
             //PRINTED IN DECODE
-            cout << " Seq#:" << (int) alt_bit << endl;
-            goto receive_more;
+            cout << " Seq#:" << (int) exp_sequence_num << endl;
         } else {
             dprintm("RECEIVE FILE LOOP ELSE", result)
-            goto receive_more;
         }
     }
+
+    delete received;
 
     mgr.WriteFile(out_file_name);
     mgr.JoinFile(packet_list);
