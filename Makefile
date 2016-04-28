@@ -1,9 +1,8 @@
 CC = g++
-CFLAGS = -std=c++0x
+CFLAGS = -std=c++0x -pthread
 
 all: clean
-	@$(CC) $(CFLAGS) -o G14Project2 src/Project2.cpp src/Sockets.cpp src/packets.cpp src/Gremlin.cpp src/FileManager.cpp src/side/Client.h
-	src/side/Server.h
+	@$(CC) $(CFLAGS) -o G14Project2 src/Project2.cpp src/Sockets.cpp src/packets.cpp src/Gremlin.cpp src/FileManager.cpp
 
 clean:
-	@$(RM) G14Project1
+	@$(RM) G14Project2

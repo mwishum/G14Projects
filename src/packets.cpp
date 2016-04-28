@@ -71,7 +71,7 @@ SR Packet::DecodePacket() {
 
     if (this->sequence_num != *seq_num) {
         //Packet was not expected
-        printf("Packet mis-sequenced - ActSum:%#06x RecdSum:%#06x ", actual_sum, this->checksum);
+        printf("Packet mis-sequenced - ActSeq#:%#06x RecdSeq#:%#06x ", *seq_num, this->sequence_num);
         return SR::OutOfSequence;
     } else {
         this->sequence_num = *seq_num;
