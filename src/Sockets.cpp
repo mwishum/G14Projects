@@ -8,8 +8,6 @@
 
 #include "Sockets.h"
 
-using namespace std;
-
 Sockets *Sockets::manager = NULL;
 
 Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false), use_manual_timeout(false) {
@@ -49,7 +47,7 @@ SR Sockets::OpenServer(string address_from, uint16_t port) {
     server_sock_addr.sin_addr = adr;
     server_sock_addr.sin_port = htons(port);
 
-    int res = bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
+    int res = ::bind(socket_id, (sockaddr *) &server_sock_addr, sizeof(server_sock_addr));
     if (res < 0) {
         perror("error binding server");
         return SR::CouldNotOpen;
@@ -357,7 +355,7 @@ SR Sockets::AwaitPacket(UnknownPacket **packet, string &type) {
 
     if (rec != SR::Success) return rec;
     *packet = new UnknownPacket(buffer, buffer_len);
-    assert(packet != nullptr);
+
     type.clear();
     type.insert(0, (*packet)->type_string, 1);
     dprint("await_packet_type", (*packet)->type_string)
@@ -381,7 +379,7 @@ SR Sockets::AwaitPacketForever(UnknownPacket **packet, string &type) {
 
     if (rec != SR::Success) return rec;
     *packet = new UnknownPacket(buffer, buffer_len);
-    assert(packet != nullptr);
+
     type.clear();
     type.insert(0, (*packet)->type_string, 1);
     dprint("await_packet_type", (*packet)->type_string)

@@ -158,9 +158,8 @@ inline bool main_client(string this_address, vector<string> &command) {
             string p_type;
             while (true) {
                 //result = Sockets::instance()->AwaitPacket(buffer, &buffer_len, p_type);
-                UnknownPacket *packet = nullptr;
+                UnknownPacket *packet;
                 result = Sockets::instance()->AwaitPacket(&packet, p_type);
-                assert(packet != nullptr);
                 delete packet;
                 if (result == SR::Success) {
                     AckPacket next(0);

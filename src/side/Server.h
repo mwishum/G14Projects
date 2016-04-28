@@ -26,7 +26,7 @@ using namespace std;
  * @return SR status of transmission
  */
 inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
-    UnknownPacket *received = nullptr;
+    UnknownPacket *received;
     string packet_type;
     SR result;
 
@@ -57,7 +57,6 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         }
 
         result = Sockets::instance()->AwaitPacket(&received, packet_type);
-        assert(&received != nullptr);
 
         TIME_METHOD::time_point recv_time = TIME_METHOD::now();
         chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
@@ -158,12 +157,11 @@ inline bool main_server(string this_address, vector<string> &command) {
     cout << "Success starting server." << endl;
 
     while (true) {
-        UnknownPacket *received = nullptr;
+        UnknownPacket *received;
         //Wait for any packet, forever
         result = Sockets::instance()->AwaitPacketForever(&received, packet_type);
 
         if (result != SR::Success) continue;
-        assert(received != nullptr);
 
         dprint("server received type", packet_type)
         if (packet_type == GREETING) {
