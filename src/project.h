@@ -107,9 +107,9 @@ enum class SR {
 };
 
 static std::string StatusMessage[] = {
-        "Success", "Error", "FatalError",
+        color_text("32", "Success"), "Error", "FatalError",
         "NotInitialized", "AlreadyInitialized", "CouldNotOpen",
-        "ChecksumDoesNotMatch", "NotExpectedType", "OutOfSequence",
-        "Timeout", "Dropped", "Delayed"};
+        color_text("41", "ChecksumDoesNotMatch"), "NotExpectedType", color_text("33", "OutOfSequence"),
+        color_text("44", "Timeout"), "Dropped", "Delayed"};
 
 #endif

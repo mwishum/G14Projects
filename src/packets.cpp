@@ -11,8 +11,7 @@
 #include "Gremlin.h"
 #include "Sockets.h"
 
-Packet::Packet() :
-        content(NULL), content_length(1), packet_size(0), checksum(0), sequence_num(
+Packet::Packet() : content_length(1), packet_size(0), checksum(0), sequence_num(
         0), type_string("X") {
     content = new char[1];
     memset(packet_buffer, NOTHING, PACKET_SIZE);
@@ -24,16 +23,29 @@ Packet::Packet() :
  * @param data content for packet
  * @param data_len length of content (NOT strlen unless null-term)
  */
-Packet::Packet(char *data, size_t data_len) :
-        content(NULL), content_length(data_len), packet_size(0), checksum(0), sequence_num(
+Packet::Packet(char *data, size_t data_len) : content_length(data_len), packet_size(0), checksum(0), sequence_num(
         0), type_string("X") {
     content = new char[data_len + 1];
     memcpy(content, data, data_len);
     memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
 
-Packet::~Packet() {
+/**
+ * Copy Consturctor
+ *
+ */
+Packet::Packet(const Packet &packet) : content_length(packet.content_length),
+                                       packet_size(packet.packet_size),
+                                       checksum(packet.checksum),
+                                       sequence_num(packet.sequence_num),
+                                       type_string(packet.type_string) {
+    content = new char[packet.content_length + 1];
+    memcpy(this->content, packet.content, content_length);
+    memcpy(this->packet_buffer, packet.packet_buffer, PACKET_SIZE);
+}
 
+Packet::~Packet() {
+    delete[] content;
 }
 
 /**
@@ -65,17 +77,18 @@ SR Packet::DecodePacket() {
     assert(this->checksum == actual_sum);
     assert(data != NULL);
 
-    content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
-    if (sizeof(content) != content_length) {
-        delete content;
-        content = new char[content_length];
-    }
+
+    content_length = packet_size - header_size();
+
+    delete[] content;
+    content = new char[content_length + 1];
+
     strncpy(content, data, content_length); //CHANGE
     packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
 
     if (this->sequence_num != *seq_num) {
         //Packet was not expected at this time
-        printf("Packet mis-sequenced - ActSeq#:%.3i RecdSeq#:%.3i \r\n", *seq_num, this->sequence_num);
+        printf("Packet mis-sequenced - ActSeq#:%.3i RecdSeq#:%.3i \r\n", this->sequence_num, *seq_num);
         return SR::OutOfSequence;
     } else {
         this->sequence_num = *seq_num;
@@ -283,9 +296,9 @@ void Packet::ConvertFromBuffer() {
     type_string = buf_pack_type;
     content_length = packet_size - header_size();
     if (content != NULL) {
-        delete content;
-        content = new char[content_length];
-    } else content = new char[content_length];
+        delete[] content;
+        content = new char[content_length + 1];
+    } else content = new char[content_length + 1];
     strcpy(content, data);
     this->sequence_num = *seq_num;
 }

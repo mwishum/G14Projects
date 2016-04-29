@@ -50,7 +50,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         received.Sequence(exp_sequence_num);
         result = received.DecodePacket();
 
-        if (received.ContentSize() == 0) {
+        if (result == SR::Success && received.ContentSize() == 0) {
             RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
             suc.Send();
             break;

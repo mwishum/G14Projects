@@ -42,7 +42,15 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
     uint32_t window_roll_overs = 0;
 
     while (1) {
-        for (int i = sequence_num; i != ((window_start + WINDOW_SIZE) % SEQUENCE_MAX); i = (i + 1) % SEQUENCE_MAX) {
+        int window_end;
+        for (int i = sequence_num; ; i = (i + 1) % SEQUENCE_MAX) {
+            window_end = (window_start + WINDOW_SIZE) % SEQUENCE_MAX;
+            if (window_end < window_start) {
+                if (i < window_start && i >= window_end)
+                    break;
+            }
+            else if (i >= window_end || i < window_start)
+                break;
             if (sent_packet_num >= packet_list.size()) {
                 //cout << "Sent last packet." << endl;
                 break;
@@ -57,6 +65,8 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
         }
 
+        //TODO: Timer here
+
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
         dprintm("  [SERVER]Await Result", result)
         dprint("  [SERVER]Await type", packet_type)
@@ -66,11 +76,11 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
             if (sequence_num < received.Sequence()) {
-                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received.Sequence();
+                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + received.Sequence();
                 window_roll_overs--;
                 sequence_num = received.Sequence();
             } else {
-                sent_packet_num = received.Sequence();
+                sent_packet_num = SEQUENCE_MAX * window_roll_overs + received.Sequence();
                 sequence_num = received.Sequence();
             }
             continue;
@@ -83,17 +93,19 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 sequence_num = 0;
                 continue;
             }
-            last_ack_num = received.Sequence();
+            if (last_ack_num != received.Sequence() + 1) {
+                last_ack_num = received.Sequence();
+            }
             window_start = received.Sequence();
             continue;
         } else if (result == SR::Timeout) {
             if (sequence_num < (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX)) {
-                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + (uint8_t) ((last_ack_num + 1) % 32);
+                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + ((last_ack_num + 1) % 32);
                 window_roll_overs--;
                 sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
             } else {
+                sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
                 sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
-                sent_packet_num = sequence_num;
             }
             continue;
         } else if (packet_type == GET_SUCCESS) {

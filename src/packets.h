@@ -47,6 +47,7 @@ class Packet {
 
 public:
     Packet();
+    Packet(const Packet &packet);
     virtual ~Packet();
     virtual SR DecodePacket();
     virtual SR DecodePacket(char *packet_buffer, size_t buf_length);
@@ -83,12 +84,14 @@ protected:
 class DataPacket : public Packet {
 public:
     DataPacket(char *data, size_t data_len);
+    DataPacket(const DataPacket &packet) : Packet(packet) { }
     DataPacket();
 };
 
 class AckPacket : public DataPacket {
 public:
     AckPacket(uint8_t seq);
+    AckPacket(const AckPacket &packet) : DataPacket(packet) { }
     SR Send() {
         Finalize();
         return _send_to_socket();
@@ -98,6 +101,7 @@ public:
 class NakPacket : public DataPacket {
 public:
     NakPacket(uint8_t seq);
+    NakPacket(const NakPacket &packet) : DataPacket(packet) { }
     SR Send() {
         Finalize();
         return _send_to_socket();
@@ -107,12 +111,14 @@ public:
 class RequestPacket : public DataPacket {
 public:
     RequestPacket(ReqType type, char *data, size_t data_len);
+    RequestPacket(const RequestPacket &packet) : DataPacket(packet) { }
 };
 
 class RTTPacket : public DataPacket {
 public:
     RTTPacket(ReqType type, char *data, size_t data_len);
     RTTPacket(ReqType type);
+    RTTPacket(const RTTPacket &packet) : DataPacket(packet) { }
     SR Send() {
         Finalize();
         return _send_to_socket();
@@ -122,6 +128,7 @@ public:
 class GreetingPacket : public DataPacket {
 public:
     GreetingPacket(char *data, size_t data_len);
+    GreetingPacket(const GreetingPacket &packet) : DataPacket(packet) { }
 };
 
 class UnknownPacket : public DataPacket {
@@ -129,6 +136,7 @@ class UnknownPacket : public DataPacket {
 
 public:
     UnknownPacket();
+    UnknownPacket(const UnknownPacket &packet) : DataPacket(packet) { }
 
 private:
     UnknownPacket(char *packet_buffer, size_t buf_length);
