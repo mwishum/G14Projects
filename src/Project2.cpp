@@ -15,8 +15,7 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
     ///////////////////////////////////////////////
-    cout << getenv("TERM") <<endl;
-    dprint("\033[1;31m[Test]\033[0m","")
+
     cout << "Ver " << __DATE__ << " " << __TIME__ << endl;
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa = NULL;
@@ -50,8 +49,8 @@ int main(int argc, char *argv[]) {
     long sel = strtol(in.c_str(), NULL, 10);
     string this_address = addresses[(sel >= addresses.size()) ? 0 : sel];
 
-    cout << "(running on " << this_address << ")" << endl;
-    cout << "Project 2: FTP using GBN" <<endl;
+    cout << color_text("91", "(running on " + this_address + ")") << endl;
+    cout << "Project 2: FTP using GBN" << endl;
     cout << "=========== Menu ===========" << endl;
     cout << "Exit: e " << endl;
     cout << "Server:\n s <dmg%> <loss%> <delay%> <delay ms> " << endl;

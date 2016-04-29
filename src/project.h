@@ -43,6 +43,15 @@
 //    std::cout << std::bitset<16>(a) << " " << a << std::endl;
 //}
 
+inline std::string color_text(std::string color, std::string text) {
+    if (strcmp(getenv("TERM"), "dumb") != 0) {
+        return "\033[1;" + color + "m" + text + "\033[0m";
+    }
+    else {
+        return text;
+    }
+}
+
 inline std::vector<std::string> split(const std::string &s, char delim) {
     std::vector<std::string> elems;
     std::stringstream ss(s);
@@ -67,7 +76,6 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 #endif
 
 #define PORT_CLIENT 10062
-#define PORT_SERVER 10063
 
 #define NOTHING 0
 #define NO_CONTENT const_cast<char*>("")
@@ -80,6 +88,8 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 #define TIMEOUT_MICRO_SEC 0
 
 #define MAX_LOOPS 1000
+
+#define DEF_CLI_ADDRESS "127.0.0.1"
 
 enum class SR {
     Success,

@@ -197,9 +197,7 @@ SR Sockets::Send(char *buffer, size_t &bufflen) {
         return SR::NotInitialized;
     }
     socklen_t length = sizeof(client_sock_addr);
-    if (DEBUG) {
-        cout << "Sent packet with size " << bufflen << endl;
-    }/*DEBUG*/
+    dprint("Sent packet with size", bufflen)
     ssize_t res = 0;
     if (side == CLIENT)
         res = send(socket_id, buffer, bufflen, 0);
@@ -311,9 +309,11 @@ int Sockets::TestRoundTrip(int side) {
 
     rtt_determined.tv_usec = average * 3;
     rtt_determined.tv_sec = 0;
-    cout << "Round trip time = " << average << " microseconds ";
-    chrono::milliseconds span = chrono::duration_cast<chrono::milliseconds>(chrono::microseconds(average * 2));
-    cout << "(" << span.count() << "ms)" << endl;
+    cout << "============" << endl;
+    cout << "Round trip time = " << rtt_determined.tv_usec << " microseconds ";
+    chrono::milliseconds span = chrono::duration_cast<chrono::milliseconds>(chrono::microseconds(rtt_determined.tv_usec));
+    cout << "(~" << span.count() << "ms)" << endl;
+    cout << "============" << endl;
     UseTimeout(0, average * 3);
     return average;
 }
@@ -349,6 +349,7 @@ SR Sockets::AwaitPacket(char *packet_buf, size_t &buff_len, string &type) {
 
     type.clear();
     type.insert(0, packet.type_string, 1);
+    //dprint("Await Packet Type:", type);
     return SR::Success;
 }
 

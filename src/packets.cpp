@@ -53,12 +53,13 @@ SR Packet::DecodePacket() {
     this->checksum = *buf_checksum;
     *buf_checksum = 0;
     uint16_t actual_sum = Checksum();
-    dprintcmp(" TYPE", buf_pack_type, this->type_string)
+    dprintcmp(" TYPE  ", string(1, buf_pack_type[0]), string(1, this->type_string[0]))
     dprintcmph(" CHKSUM", this->checksum, actual_sum);
     dprintcmp(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
     if (this->checksum != actual_sum) {
         //Packet is invalid
-        printf("Packet has CKSUM err - ActSum:%#06x RecdSum:%#06x ", actual_sum, this->checksum);
+        printf("Packet(SQ#%.3i) has CKSUM err - ActSum:%#06x RecdSum:%#06x \r\n",
+               this->sequence_num, actual_sum, this->checksum);
         return SR::ChecksumDoesNotMatch;
     }
     assert(this->checksum == actual_sum);
@@ -73,8 +74,8 @@ SR Packet::DecodePacket() {
     packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
 
     if (this->sequence_num != *seq_num) {
-        //Packet was not expected
-        printf("Packet mis-sequenced - ActSeq#:%#06x RecdSeq#:%#06x ", *seq_num, this->sequence_num);
+        //Packet was not expected at this time
+        printf("Packet mis-sequenced - ActSeq#:%.3i RecdSeq#:%.3i \r\n", *seq_num, this->sequence_num);
         return SR::OutOfSequence;
     } else {
         this->sequence_num = *seq_num;
@@ -171,9 +172,12 @@ SR Packet::Send() {
     if (Sockets::instance()->GetSide() == SERVER) {
         r = Gremlin::instance()->tamper(packet_buffer, &packet_size);
         if (r == SR::Delayed) {
+            printf(color_text("35", "Packet with S#%i DELAYED\n").c_str(), this->sequence_num);
             r = SendDelayed();
         } else if (r == SR::Success) {
             r = _send_to_socket();
+        } else if (r == SR::Dropped) {
+            printf(color_text("34", "Packet with S#%i DROPPED\n").c_str(), this->sequence_num);
         }
     } else if (Sockets::instance()->GetSide() == CLIENT) {
         r = _send_to_socket();
@@ -205,10 +209,10 @@ SR Packet::SendDelayed() {
 SR Packet::send_delayed(chrono::milliseconds time, Packet p) {
     assert(p.type_string != NULL);
     this_thread::sleep_for(time);
-    cout << "This is " << static_cast<void *>(this) << ", passed packet is " << static_cast<void *>(&p) << endl;
+    //cout << "This is " << static_cast<void *>(this) << ", passed packet is " << static_cast<void *>(&p) << endl;
     p.Finalize();
     SR r = p._send_to_socket();
-    cout << "Packet send delayed (" << time.count() << "ms) returned " << StatusMessage[(int) r] << "." << endl;
+    //cout << "Packet send delayed (" << time.count() << "ms) returned " << StatusMessage[(int) r] << "." << endl;
     return r;
 }
 
@@ -262,7 +266,7 @@ SR Packet::DecodePacket(char *packet_buffer, size_t buf_length) {
     memcpy(this->packet_buffer, packet_buffer, buf_length);
     this->packet_size = buf_length;
     ConvertFromBuffer();
-    return DecodePacket();
+    return SR::Success;
 }
 
 /**

@@ -29,13 +29,15 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
 
     string packet_type;
     char buffer[PACKET_SIZE];
-    size_t buffer_len = PACKET_SIZE;
+    size_t buffer_len;
 
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
+    packet_list.reserve(100);
 
     while (true) {
+        buffer_len = PACKET_SIZE;
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
 
         // Checking the await result
@@ -44,16 +46,17 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         }
 
         DataPacket received;
+        received.DecodePacket(buffer, buffer_len);
         received.Sequence(exp_sequence_num);
-        result = received.DecodePacket(buffer, buffer_len);
+        result = received.DecodePacket();
 
-        if (received.ContentSize() == 0) { // BREAK ON THIS
+        if (received.ContentSize() == 0) {
             RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
             suc.Send();
             break;
         }
 
-        dprintm("[CLIENT] Status Result", result);
+        dprintm("  [CLIENT]Decode Result", result);
 
         if (result == SR::Success) {
             packet_list.push_back(received);
@@ -68,13 +71,11 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         } else if (result == SR::ChecksumDoesNotMatch) {
             NakPacket packet = NakPacket(exp_sequence_num);
             packet.Send();
-            //PRINTED IN DECODE
-            cout << " Seq#:" << (int) exp_sequence_num << endl;
+            //ERROR PRINTED IN DECODE
         } else if (result == SR::OutOfSequence) {
             AckPacket packet = AckPacket(last_seq_num);
             packet.Send();
-            //PRINTED IN DECODE
-            cout << " Seq#:" << (int) exp_sequence_num << endl;
+            //ERROR PRINTED IN DECODE
         } else {
             dprintm("\033[1;31m[Client]Unexpected Result\033[0m", result)
         }
@@ -102,7 +103,10 @@ inline bool main_client(string this_address, vector<string> &command) {
         cout << "Enter server address: ";
         getline(cin, remote_server_a);
     } else {
-        remote_server_a = command[1];
+        if (command[1] == "*")
+            remote_server_a = DEF_CLI_ADDRESS;
+        else
+            remote_server_a = command[1];
     }
     result = Sockets::instance()->OpenClient(remote_server_a, PORT_CLIENT);
     FileManager mgr(CLIENT);

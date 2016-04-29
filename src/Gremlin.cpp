@@ -47,38 +47,35 @@ SR Gremlin::tamper(char *buffer, size_t *buff_len) {
     // Deciding to delay the packet or not
     double delay_roll = (rand() % 100 + 1) / 100.0;
     if (delay_roll <= delay_prob) {
-        cout << "Packet delayed" << endl;
         return SR::Delayed;
     }
 
     // Deciding to corrupt the packet or not.
     double tamper_roll = (rand() % 100 + 1) / 100.0;
-    //dprint("Tamper Roll", tamper_roll)
     if (tamper_roll <= damage_prob) {
-        cout << "Packet tampered with" << endl;
+        cout << color_text("92", "Packet tampered with") << endl;
         double degree_roll = (rand() % 100 + 1) / 100.0;
         if (degree_roll <= 0.7) {  // 1 bit corrupted
             int byte_roll = rand() % static_cast<int>(*buff_len);
-            //dprint("Bytes changed (1)", byte_roll)
+
             memset(buffer + byte_roll, '|', 1);
         } else if (degree_roll <= 0.9) { // 2 bits corrupted
             int byte_roll = rand() % (static_cast<int>(*buff_len) - 1);
-            //dprint("Bytes changed (2)", byte_roll)
+
             memset(buffer + byte_roll, '|', 2);
         } else if (degree_roll <= 1) { // 3 bits corrupted
             int byte_roll = rand() % (static_cast<int>(*buff_len) - 2);
-            //dprint("Bytes changed (3)", byte_roll)
+
             memset(buffer + byte_roll, '|', 3);
         }
-    } //else dprint("Tamper Roll", "Failed")
+    }
 
     // Deciding to drop the packet or not.
     double drop_roll = (rand() % 100 + 1) / 100.0;
-    //dprint("Drop Roll", drop_roll)
+
     if (drop_roll <= loss_prob) {
-        cout << "Packet Dropped" << endl;
         return SR::Dropped;
-    } //else dprint("Drop Roll", "Failed")
+    }
 
     return SR::Success;
 }

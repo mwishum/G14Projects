@@ -87,7 +87,7 @@ SR FileManager::BreakFile(vector<DataPacket> &packs) {
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);
-    dprint("Total packets created", packs.size())
+    cout << "Created " << packs.size() << " packets."<< endl;
     packs.push_back(final_packet);
     return SR::Success;
 }
@@ -104,7 +104,7 @@ SR FileManager::JoinFile(vector<DataPacket> &packs) {
         cerr << "FILE NOT OPEN/VALID/NO PACKETS" << endl;
         return SR::NotInitialized;
     }
-    dprint("Joining packets. Count", packs.size())
+    cout << "Joining " << packs.size() << " packets." << endl;
     out_file.seekg(0, ios::beg);
     for (uint p_i = 0; p_i < packs.size(); p_i++) {
         out_file.write(packs[p_i].Content(), packs[p_i].ContentSize());
