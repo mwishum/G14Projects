@@ -10,9 +10,10 @@
 
 Sockets *Sockets::manager = NULL;
 
-Sockets::Sockets() : initialized(false), socket_id(-1), socket_ready(false) {
+Sockets::Sockets() : initialized(false), socket_id(-1) {
     deft_timeout.tv_sec = TIMEOUT_SEC;
     deft_timeout.tv_usec = TIMEOUT_MICRO_SEC;
+    memset(&client_sock_addr, 0, sizeof(client_sock_addr));
 }
 
 
@@ -53,7 +54,6 @@ SR Sockets::OpenServer(string address_from, uint16_t port) {
         return SR::CouldNotOpen;
     }
     initialized = true;
-    socket_ready = true;
     return SR::Success;
 }
 
@@ -93,7 +93,6 @@ SR Sockets::OpenClient(string address_to, uint16_t port_to) {
         return SR::CouldNotOpen;
     }
     initialized = true;
-    socket_ready = true;
     return SR::Success;
 }
 
@@ -104,7 +103,6 @@ void Sockets::Close() {
     if (initialized) {
         close(socket_id);
         initialized = false;
-        socket_ready = false;
     }
 }
 
@@ -234,7 +232,7 @@ int Sockets::TestRoundTrip(int side) {
     SR res;
     TIME_METHOD::time_point start_time, end_time;
     if (side == CLIENT) {
-        dprint("RTTT side", "client")
+        dprint("\nRTTT side", "client")
         RTTPacket client_send(ReqType::RTTClient, dat, strlen(dat));
         RTTPacket server_resp(ReqType::RTTServer, dat, strlen(dat));
         client_send.Send();
@@ -251,7 +249,7 @@ int Sockets::TestRoundTrip(int side) {
 
     if (side == SERVER) {
         UseTimeout(5, 0);
-        dprint("RTTT side", "server")
+        dprint("\nRTTT side", "server")
         RTTPacket from_client(ReqType::RTTClient);
         res = from_client.Receive();
 
@@ -261,7 +259,6 @@ int Sockets::TestRoundTrip(int side) {
         } else if (res == SR::Success) {
             RTTPacket my_resp(ReqType::RTTServer);
             my_resp.Send();
-
         } else {
             dprintm("Failed communicating with client", res)
             return -1;
@@ -274,7 +271,7 @@ int Sockets::TestRoundTrip(int side) {
         sprintf(p_content, "%d", trips);
         ReqType type_send = (side == CLIENT) ? ReqType::RTTServer : ReqType::RTTClient;
         RTTPacket init((side == SERVER) ? ReqType::RTTServer : ReqType::RTTClient, p_content, strlen(p_content));
-        if (trips == trips - 1) {
+        if (trips == 4) {
             init.Send();
             start_time = TIME_METHOD::now();
         }
@@ -297,25 +294,27 @@ int Sockets::TestRoundTrip(int side) {
     }
     if (side == SERVER) {
         RTTPacket last_one(ReqType::RTTServer, NO_CONTENT, 1);
+        dprint("Getting the last one", "")
         res = last_one.Receive();
-        dprintm("Getting the last one", res)
+        dprintm("on server", res)
     }
     if (side == CLIENT) {
         RTTPacket last_one(ReqType::RTTClient, NO_CONTENT, 1);
+        dprint("Getting the last one", "")
         res = last_one.Receive();
-        dprintm("Getting the last one", res)
+        dprintm("on client", res)
     }
     int average = 0, r_total = 0;
     for (int i = 0; i < 5; i++)
         r_total += trip_times[i];
     average = r_total / 5;
 
-    rtt_determined.tv_usec = average * 2;
+    rtt_determined.tv_usec = average * 3;
     rtt_determined.tv_sec = 0;
     cout << "Round trip time = " << average << " microseconds ";
     chrono::milliseconds span = chrono::duration_cast<chrono::milliseconds>(chrono::microseconds(average * 2));
     cout << "(" << span.count() << "ms)" << endl;
-    UseTimeout(0, average * 2);
+    UseTimeout(0, average * 3);
     return average;
 }
 
@@ -333,23 +332,23 @@ void Sockets::UseTimeout(long int sec, long int micro_sec) {
 /**
  * Blocks until a packet is received or Timeout reached.
  *
- * @param packet Pointer to a pointer of the packet received
- * @param type Single letter string representing type of packet
  *
  * @return result of awaiting.
  */
-SR Sockets::AwaitPacket(UnknownPacket **packet, string &type) {
-    if (!this->initialized) return SR::NotInitialized;
-    char buffer[PACKET_SIZE];
-    size_t buffer_len = PACKET_SIZE;
-    SR rec = ReceiveTimeout(buffer, buffer_len);
+SR Sockets::AwaitPacket(char *packet_buf, size_t &buff_len, string &type) {
+    if (!this->initialized) {
+        return SR::NotInitialized;
+    }
 
-    if (rec != SR::Success) return rec;
-    *packet = new UnknownPacket(buffer, buffer_len);
+    SR rec = ReceiveTimeout(packet_buf, buff_len);
+
+    if (rec != SR::Success) {
+        return rec;
+    }
+    UnknownPacket packet(packet_buf, buff_len);
 
     type.clear();
-    type.insert(0, (*packet)->type_string, 1);
-    //dprint("await_packet_type", (*packet)->type_string)
+    type.insert(0, packet.type_string, 1);
     return SR::Success;
 }
 
@@ -357,23 +356,22 @@ SR Sockets::AwaitPacket(UnknownPacket **packet, string &type) {
 /**
  * Blocks forever until a packet is received.
  *
- * @param **packet Pointer to a pointer of the packet received
- * @param &type Single letter string representing type of packet
- *
  * @return result of awaiting.
  */
-SR Sockets::AwaitPacketForever(UnknownPacket **packet, string &type) {
-    if (!this->initialized) return SR::NotInitialized;
-    char buffer[PACKET_SIZE];
-    size_t buffer_len = PACKET_SIZE;
-    SR rec = Receive(buffer, buffer_len);
+SR Sockets::AwaitPacketForever(char *packet_buf, size_t &buff_len, string &type) {
+    if (!this->initialized) {
+        return SR::NotInitialized;
+    }
 
-    if (rec != SR::Success) return rec;
-    *packet = new UnknownPacket(buffer, buffer_len);
+    SR rec = Receive(packet_buf, buff_len);
+
+    if (rec != SR::Success) {
+        return rec;
+    }
+    UnknownPacket packet(packet_buf, buff_len);
 
     type.clear();
-    type.insert(0, (*packet)->type_string, 1);
-    dprint("await_packet_type", (*packet)->type_string)
+    type.insert(0, packet.type_string, 1);
     return SR::Success;
 }
 

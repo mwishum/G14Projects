@@ -33,6 +33,7 @@ Packet::Packet(char *data, size_t data_len) :
 }
 
 Packet::~Packet() {
+
 }
 
 /**
@@ -54,19 +55,21 @@ SR Packet::DecodePacket() {
     uint16_t actual_sum = Checksum();
     dprintcmp(" TYPE", buf_pack_type, this->type_string)
     dprintcmph(" CHKSUM", this->checksum, actual_sum);
-    dprintcmph(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
+    dprintcmp(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
     if (this->checksum != actual_sum) {
         //Packet is invalid
         printf("Packet has CKSUM err - ActSum:%#06x RecdSum:%#06x ", actual_sum, this->checksum);
         return SR::ChecksumDoesNotMatch;
     }
     assert(this->checksum == actual_sum);
-    assert(content != NULL);
     assert(data != NULL);
 
     content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
-    content = new char[content_length];
-    strcpy(content, data);
+    if (sizeof(content) != content_length) {
+        delete content;
+        content = new char[content_length];
+    }
+    strncpy(content, data, content_length); //CHANGE
     packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
 
     if (this->sequence_num != *seq_num) {
@@ -150,8 +153,7 @@ void Packet::Finalize() {
     assert(content != NULL);
 
     strcpy(data, content);
-    packet_size = sizeof(char) + sizeof(uint16_t) + sizeof(uint8_t)
-                  + content_length;
+    packet_size = header_size() + content_length;
     this->checksum = Checksum();
     *checksum = this->checksum;
 }
@@ -241,7 +243,7 @@ SR Packet::Receive() {
 /**
  * Sets sequence number of packet.
  *
- * @param n_seq Sequence nubmer to set
+ * @param n_seq Sequence number to set
  */
 void Packet::Sequence(uint8_t n_seq) {
     sequence_num = n_seq;
@@ -275,7 +277,11 @@ void Packet::ConvertFromBuffer() {
                            + sizeof(char));
 
     type_string = buf_pack_type;
-    content_length = packet_size - ((size_t) -((int) max_content() - PACKET_SIZE));
+    content_length = packet_size - header_size();
+    if (content != NULL) {
+        delete content;
+        content = new char[content_length];
+    } else content = new char[content_length];
     strcpy(content, data);
     this->sequence_num = *seq_num;
 }

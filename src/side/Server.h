@@ -26,8 +26,9 @@ using namespace std;
  * @return SR status of transmission
  */
 inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
-    UnknownPacket *received;
     string packet_type;
+    char buffer[PACKET_SIZE];
+    size_t buffer_len = PACKET_SIZE;
     SR result;
 
     mgr.ReadFile(filename);
@@ -40,63 +41,48 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
     uint32_t sent_packet_num = 0;
     uint8_t window_roll_overs = 0;
 
-//    vector<TIME_METHOD::time_point> sent_times;
-
     while (1) {
         for (int i = sequence_num; i != ((window_start + WINDOW_SIZE - 1) % SEQUENCE_MAX); i = (i + 1) % SEQUENCE_MAX) {
-            DataPacket packet = packet_list[sent_packet_num];
+            if (sent_packet_num >= packet_list.size()) {
+                cout << "Sent last packet." << endl;
+                break;
+            }
+            DataPacket packet = packet_list.at(sent_packet_num);
             packet.Sequence(sequence_num);
             packet.Send();
-//            sent_times.push_back(TIME_METHOD::now());
             sent_packet_num++;
             if (++sequence_num % 32 == 0) {
                 window_roll_overs++;
+                sequence_num = 0;
             }
         }
 
-        dprint("received address", &received);
-        result = Sockets::instance()->AwaitPacket(&received, packet_type);
+        result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
         dprintm("GBN Await", result);
-        dprint("received address", &received);
 
-//        TIME_METHOD::time_point recv_time = TIME_METHOD::now();
-//        chrono::microseconds span = chrono::duration_cast<chrono::microseconds>(recv_time - sent_times.front());
-//        sent_times.pop_back();
-//
-//        if (span.count() > Sockets::instance()->rtt_determined.tv_usec) {
-//            received->DecodePacket();
-//            if (sequence_num < received->Sequence()) {
-//                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
-//                window_roll_overs--;
-//                sequence_num = received->Sequence();
-//            } else {
-//                sent_packet_num = received->Sequence();
-//                sequence_num = received->Sequence();
-//            }
-//            continue;
-//        }
 
         if (packet_type == NO_ACK) { // Resend packets starting from sequence number
-            received->DecodePacket();
-            if (sequence_num < received->Sequence()) {
-                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received->Sequence();
+            NakPacket received(0);
+            received.DecodePacket(buffer, buffer_len);
+            if (sequence_num < received.Sequence()) {
+                sent_packet_num = (uint32_t) SEQUENCE_MAX * (window_roll_overs - 1) + received.Sequence();
                 window_roll_overs--;
-                sequence_num = received->Sequence();
+                sequence_num = received.Sequence();
             } else {
-                sent_packet_num = received->Sequence();
-                sequence_num = received->Sequence();
+                sent_packet_num = received.Sequence();
+                sequence_num = received.Sequence();
             }
-//            sent_times.clear();
             continue;
         } else if (packet_type == ACK) {
-            received->DecodePacket();
-            if (received->Sequence() == 32) { // Special case - first packet out of sequence
+            AckPacket received(0);
+            received.DecodePacket(buffer, buffer_len);
+            if (received.Sequence() == 32) { // Special case - first packet out of sequence
                 sent_packet_num = 0;
                 sequence_num = 0;
                 continue;
             }
-            last_ack_num = received->Sequence();
-            window_start = received->Sequence();
+            last_ack_num = received.Sequence();
+            window_start = received.Sequence();
             continue;
         } else if (result == SR::Timeout) {
             if (sequence_num < (uint8_t) ((last_ack_num + 1) % 32)) {
@@ -109,6 +95,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
             continue;
         } else if (packet_type == GET_SUCCESS) {
+            cout << "Received success message from client. Finishing file transfer." << endl;
             break;
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
@@ -116,8 +103,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         }
     } //END PACKET LOOP
 
-    delete received;
-    return SR::Success;
+    return SR::Error;
 }
 
 /**
@@ -130,8 +116,11 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
 inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob, delay_prob, delay_time;
     SR result;
-    string packet_type;
     int loops = 0;
+
+    string packet_type;
+    char buffer[PACKET_SIZE];
+    size_t buffer_len = PACKET_SIZE;
 
     //Decode command
     if (command.size() < 5) {
@@ -154,11 +143,15 @@ inline bool main_server(string this_address, vector<string> &command) {
                                              atof(delay_prob.c_str()), atoi(delay_time.c_str()));
     if (result != SR::Success) {
         cerr << "Could not start Gremlin." << endl;
+        Gremlin::instance()->Close();
+        Sockets::instance()->Close();
         return true;
     }
     result = Sockets::instance()->OpenServer(this_address, PORT_CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start server." << endl;
+        Gremlin::instance()->Close();
+        Sockets::instance()->Close();
         return true;
     }
 
@@ -167,41 +160,42 @@ inline bool main_server(string this_address, vector<string> &command) {
     cout << "Success starting server." << endl;
 
     while (true) {
-        UnknownPacket *received;
         //Wait for any packet, forever
-        result = Sockets::instance()->AwaitPacketForever(&received, packet_type);
+        buffer_len = PACKET_SIZE;
+        result = Sockets::instance()->AwaitPacketForever(buffer, buffer_len, packet_type);
 
         if (result != SR::Success) continue;
 
         dprint("server received type", packet_type)
         if (packet_type == GREETING) {
-            received->Sequence(0);
-            received->DecodePacket();
+            GreetingPacket received(NO_CONTENT, 1);
+            received.Sequence(0);
+            received.DecodePacket(buffer, buffer_len);
 
             GreetingPacket hello = GreetingPacket(&this_address[0], this_address.size());
             hello.Send();
         } else if (packet_type == GET_INFO) { // GET FILE INFO
             bool file_exists;
             //Get File Exists Request
-            //RequestPacket req_info(ReqType::Info, NO_CONTENT, 1);
-            received->Sequence(1);
-            received->DecodePacket();
+            RequestPacket received(ReqType::Info, NO_CONTENT, 1);
+            received.Sequence(1);
+            received.DecodePacket(buffer, buffer_len);
 
             //Check actual file exists
             struct stat stat_buff;
             string file_name_from_client;
-            file_name_from_client.insert(0, received->Content(), received->ContentSize());
+            file_name_from_client.insert(0, received.Content(), received.ContentSize());
             file_exists = (stat(file_name_from_client.c_str(), &stat_buff) == 0);
             cout << "FILE `" << file_name_from_client << "` EXISTS ?";
 
             //Send status of file (Success or Fail)
             send_file_ack_again:
             if (file_exists) {
-                RequestPacket suc(ReqType::Success, received->Content(), received->ContentSize());
+                RequestPacket suc(ReqType::Success, received.Content(), received.ContentSize());
                 cout << " TRUE" << endl;
                 suc.Send();
             } else {
-                RequestPacket fail(ReqType::Fail, received->Content(), received->ContentSize());
+                RequestPacket fail(ReqType::Fail, received.Content(), received.ContentSize());
                 cout << " FALSE" << endl;
                 fail.Send();
             }
@@ -236,7 +230,7 @@ inline bool main_server(string this_address, vector<string> &command) {
             cout << "Server ran too long. (>" << MAX_LOOPS << ")\n";
             break;
         }
-        delete received;
+        //delete received;
     } //***WHILE
     return true;
 }

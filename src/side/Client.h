@@ -26,34 +26,37 @@ using namespace std;
  */
 inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &out_file_name) {
     SR result;
-    UnknownPacket* received;
-    string packet_type = "D";
+
+    string packet_type;
+    char buffer[PACKET_SIZE];
+    size_t buffer_len = PACKET_SIZE;
 
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
 
     while (true) {
-        result = Sockets::instance()->AwaitPacket(&received, packet_type);
+        result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
 
         // Checking the await result
         if (result != SR::Success) {
             continue;
         }
 
-        received->Sequence(exp_sequence_num);
-        result = received->DecodePacket();
+        DataPacket received;
+        received.Sequence(exp_sequence_num);
+        result = received.DecodePacket(buffer, buffer_len);
 
-        if (received->ContentSize() == 0) { // BREAK ON THIS
+        if (received.ContentSize() == 0) { // BREAK ON THIS
             RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
             suc.Send();
             break;
         }
 
-        dprintm("Status Result (CLIENT)", result);
+        dprintm("[CLIENT] Status Result", result);
 
         if (result == SR::Success) {
-            packet_list.push_back(*received);
+            packet_list.push_back(received);
 
             last_seq_num = exp_sequence_num;
             if (exp_sequence_num == SEQUENCE_MAX - 1) {
@@ -73,11 +76,9 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
             //PRINTED IN DECODE
             cout << " Seq#:" << (int) exp_sequence_num << endl;
         } else {
-            dprintm("RECEIVE FILE LOOP ELSE", result)
+            dprintm("\033[1;31m[Client]Unexpected Result\033[0m", result)
         }
     }
-
-    delete received;
 
     mgr.WriteFile(out_file_name);
     mgr.JoinFile(packet_list);
@@ -107,11 +108,11 @@ inline bool main_client(string this_address, vector<string> &command) {
     FileManager mgr(CLIENT);
     if (result != SR::Success) {
         cerr << "Could not start Client." << endl;
-        dprintm("client",result);
+        dprintm("client", result);
         return true;
     }
     cout << "Success starting client." << endl;
-    cout << "Trying to contact server:" <<endl;
+    cout << "Trying to contact server:" << endl;
     bool connected = false;
     for (int tries = 5; tries >= 0; tries--) {
         GreetingPacket hello(&this_address[0], this_address.size());
@@ -129,7 +130,7 @@ inline bool main_client(string this_address, vector<string> &command) {
     }
 
     //Exit client if could not contact server
-    if(!connected) return false;
+    if (!connected) return false;
 
     while (true) {
         client:
@@ -158,30 +159,33 @@ inline bool main_client(string this_address, vector<string> &command) {
             dprintm("Sending filename to server", result)
             //fwrite(req_send->Content(), req_send->ContentSize(), 1, stdout);
 
-            string p_type;
+            string packet_type;
+            char buffer[PACKET_SIZE];
+            size_t buffer_len = PACKET_SIZE;
             while (true) {
-                UnknownPacket *packet;
-                result = Sockets::instance()->AwaitPacket(&packet, p_type);
-                delete packet;
+                buffer_len = PACKET_SIZE;
+                result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
+
                 if (result == SR::Success) {
                     AckPacket next(0);
                     next.Send();
                 } else cout << "Error communicating with server: " << StatusMessage[(int) result] << endl;
-                if (p_type == GET_SUCCESS) {
-                    cout << "Get success, file transmission in progress" << endl;
-                    Sockets::instance()->TestRoundTrip(CLIENT);
+                if (packet_type == GET_SUCCESS) {
                     break; //File exists
-                } else if (p_type == GET_FAIL) {
+                } else if (packet_type == GET_FAIL) {
                     cout << "File `" << file_name << "` does not exist on server." << endl;
                     goto client; //continue to client menu loop
                 }
             }
 
+            Sockets::instance()->TestRoundTrip(CLIENT);
+            cout << "Get success, file transmission in progress" << endl;
             GoBackNProtocol_Client(mgr, file_name, out_file_name);
 
         } else if (primary == "e") {
             cout << "[client closed]" << endl;
             Sockets::instance()->Close();
+            Gremlin::instance()->Close();
             return true; //Back to main program loop
         } else {
             continue; //Continue client menu loop

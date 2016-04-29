@@ -33,6 +33,7 @@ public:
         return manager;
     }
     chrono::milliseconds get_delay();
+    void Close();
 };
 
 #endif //GREMLIN_H

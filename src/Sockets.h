@@ -27,7 +27,6 @@ class Sockets {
     struct sockaddr_in server_sock_addr;
     struct sockaddr_in client_sock_addr;
     socklen_t client_size;
-    bool socket_ready;
     bool initialized;
     fd_set socks;
     struct timeval deft_timeout;
@@ -41,8 +40,8 @@ public:
     SR Receive(char *buffer, size_t &buf_length);
     SR ReceiveTimeout(char *buffer, size_t &buff_len);
     SR ReceiveTimeout(char *buffer, size_t &buff_len, struct timeval timeout);
-    SR AwaitPacket(UnknownPacket **packet, string &type);
-    SR AwaitPacketForever(UnknownPacket **packet, string &type);
+    SR AwaitPacket(char *packet_buf, size_t &buff_len, string &type);
+    SR AwaitPacketForever(char *packet_buf, size_t &buff_len, string &type);
     SR Send(char *buffer, size_t &buff_len);
     int TestRoundTrip(int side);
     void UseTimeout(long int sec, long int micro_sec);

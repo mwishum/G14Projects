@@ -15,6 +15,8 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
     ///////////////////////////////////////////////
+    cout << getenv("TERM") <<endl;
+    dprint("\033[1;31m[Test]\033[0m","")
     cout << "Ver " << __DATE__ << " " << __TIME__ << endl;
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa = NULL;
