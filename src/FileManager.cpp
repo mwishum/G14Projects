@@ -70,20 +70,17 @@ SR FileManager::BreakFile(vector<DataPacket> &packs) {
     in_file.seekg(0, ios::beg);
     while (in_file.tellg() < file_size) {
         size_t rem = (size_t) file_size - in_file.tellg();
-        //dprint("get pos", in_file.tellg())
         memset(file_buffer, NOTHING, Packet::max_content());
 
         if (rem <= Packet::max_content()) {
             dprint("END OF FILE", "making small packet")
             in_file.read(file_buffer, rem);
             packs.push_back(DataPacket(file_buffer, rem));
-            //dprint("pack #", packs.size())
             break;
         }
 
         in_file.read(file_buffer, Packet::max_content());
         packs.push_back(DataPacket(file_buffer, Packet::max_content()));
-        //dprint("pack #", packs.size())
     }
     in_file.close();
     DataPacket final_packet = DataPacket(NO_CONTENT, 0);

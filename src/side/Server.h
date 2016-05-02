@@ -46,13 +46,17 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         for (int i = sequence_num; ; i = (i + 1) % SEQUENCE_MAX) {
             window_end = (window_start + WINDOW_SIZE) % SEQUENCE_MAX;
             if (window_end < window_start) {
-                if (i < window_start && i >= window_end)
+                if (i < window_start && i >= window_end) {
+                    cout << color_text("41", "[Server]i < window_start && i >= window_end") << endl;
                     break;
+                }
             }
-            else if (i >= window_end || i < window_start)
+            else if (i >= window_end || i < window_start) {
+                cout << color_text("41", "[Server]i >= window_end || i < window_start") << endl;
                 break;
+            }
             if (sent_packet_num >= packet_list.size()) {
-                //cout << "Sent last packet." << endl;
+                cout << color_text("41", "[Server]SENT ALL PACKETS!") << endl;
                 break;
             }
             DataPacket packet = packet_list.at(sent_packet_num);
@@ -68,10 +72,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         //TODO: Timer here
 
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
-        dprintm("  [SERVER]Await Result", result)
-        dprint("  [SERVER]Await type", packet_type)
+        dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
 
         if (packet_type == NO_ACK) { // Resend packets starting from sequence number
+            cout << color_text("45", "[Server]NO ACK") << endl;
             NakPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
@@ -85,6 +89,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
             continue;
         } else if (packet_type == ACK) {
+            cout << color_text("46", "[Server]ACK") << endl;
             AckPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
@@ -107,6 +112,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
                 sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
             }
+            usleep(400);
             continue;
         } else if (packet_type == GET_SUCCESS) {
             cout << "Sent " << packet_list.size() - 1 << " packets. Success received, transfer done." << endl;
@@ -116,8 +122,8 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             continue;
         }
     } //END PACKET LOOP
-
-    return SR::Error;
+    Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
+    return SR::Success;
 }
 
 /**
@@ -239,14 +245,9 @@ inline bool main_server(string this_address, vector<string> &command) {
 
         } //***ELSE IF GET INFO
         else {
+
         }
-        if (loops++ >= MAX_LOOPS) {
-            cout << "Server ran too long. (>" << MAX_LOOPS << ")\n";
-            break;
-        }
-        //delete received;
     } //***WHILE
-    return true;
 }
 
 

@@ -34,7 +34,6 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
-    packet_list.reserve(100);
 
     while (true) {
         buffer_len = PACKET_SIZE;
@@ -50,9 +49,11 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         received.Sequence(exp_sequence_num);
         result = received.DecodePacket();
 
+
         if (result == SR::Success && received.ContentSize() == 0) {
             RequestPacket suc(ReqType::Success, &file_name[0], file_name.size());
             suc.Send();
+            cout << color_text("42", "[Client]Received last packet!") << endl;
             break;
         }
 
@@ -77,7 +78,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
             packet.Send();
             //ERROR PRINTED IN DECODE
         } else {
-            dprintm("\033[1;31m[Client]Unexpected Result\033[0m", result)
+            dprintm(color_text("33", "[Client]Unexpected Result"), result)
         }
     }
 
@@ -162,6 +163,7 @@ inline bool main_client(string this_address, vector<string> &command) {
             result = req_send->Send();
             dprintm("Sending filename to server", result)
             //fwrite(req_send->Content(), req_send->ContentSize(), 1, stdout);
+            delete req_send;
 
             string packet_type;
             char buffer[PACKET_SIZE];

@@ -78,7 +78,7 @@ protected:
     size_t packet_size;
     uint16_t checksum;
     uint8_t sequence_num;
-    const char *type_string;
+    char *type_string;
 };
 
 class DataPacket : public Packet {
@@ -129,6 +129,10 @@ class GreetingPacket : public DataPacket {
 public:
     GreetingPacket(char *data, size_t data_len);
     GreetingPacket(const GreetingPacket &packet) : DataPacket(packet) { }
+    SR Send() {
+        Finalize();
+        return _send_to_socket();
+    }
 };
 
 class UnknownPacket : public DataPacket {
