@@ -43,6 +43,8 @@ Packet::Packet(const Packet &packet) : content_length(packet.content_length),
     if (packet.type_string != NULL) {
         type_string = new char;
         memcpy(type_string, packet.type_string, 1);
+    } else { 
+        exit(-2012);
     }
     content = new char[packet.content_length + 1];
     memcpy(this->content, packet.content, content_length);

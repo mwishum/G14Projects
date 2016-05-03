@@ -56,7 +56,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 break;
             }
             if (sent_packet_num >= packet_list.size()) {
-                cout << color_text("41", "[Server]SENT ALL PACKETS!") << endl;
+                cout << color_text("43", "[Server]SENT ALL PACKETS!") << endl;
                 break;
             }
             DataPacket packet = packet_list.at(sent_packet_num);
@@ -72,9 +72,21 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         //TODO: Timer here
 
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
-        dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
+        //dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
 
-        if (packet_type == NO_ACK) { // Resend packets starting from sequence number
+        if (result == SR::Timeout) {
+            cout << color_text("44", "[Server]Timeout") << endl;
+            if (sequence_num < ((last_ack_num + 1) % SEQUENCE_MAX)) {
+                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + ((last_ack_num + 1) % 32);
+                window_roll_overs--;
+                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
+            } else {
+                sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
+                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
+            }
+
+            continue;
+        } else if (packet_type == NO_ACK) { // Resend packets starting from sequence number
             cout << color_text("45", "[Server]NO ACK") << endl;
             NakPacket received(0);
             received.DecodePacket(buffer, buffer_len);
@@ -103,19 +115,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
             window_start = received.Sequence();
             continue;
-        } else if (result == SR::Timeout) {
-            if (sequence_num < (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX)) {
-                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + ((last_ack_num + 1) % 32);
-                window_roll_overs--;
-                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
-            } else {
-                sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
-                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
-            }
-            usleep(400);
-            continue;
         } else if (packet_type == GET_SUCCESS) {
+            ///////////////////////////////////////////////
             cout << "Sent " << packet_list.size() - 1 << " packets. Success received, transfer done." << endl;
+            sleep(10);
             break;
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;

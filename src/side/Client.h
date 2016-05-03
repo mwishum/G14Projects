@@ -34,6 +34,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
+    packet_list.reserve(1000);
 
     while (true) {
         buffer_len = PACKET_SIZE;

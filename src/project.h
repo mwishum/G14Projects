@@ -33,7 +33,7 @@
 //#define NDEBUG
 #include <cassert>
 
-#define DEBUG false /*CHANGE TO FALSE for no debug printing*/
+#define DEBUG true /*CHANGE TO FALSE for no debug printing*/
 #define dprint(a, b) if(DEBUG) {cout << (a) << ": " << (b) << endl;}
 #define dprintm(a, b) if(DEBUG) {cout << (a) << ": " << StatusMessage[(int)(b)] << endl;}
 #define dprintcmp(des, rec, act) if(DEBUG) {cout << (des) << " - Recd:" << (rec) << " Act:"<< (act) <<endl;}
