@@ -51,7 +51,7 @@ Packet::~Packet() {
 }
 
 /**
- * Sets this packet's data to what in the packet buffer
+ * Sets this packet's data to what is in the packet buffer
  * Used after calling Receive.
  *
  */
@@ -79,18 +79,18 @@ SR Packet::DecodePacket() {
     assert(this->checksum == actual_sum);
     assert(data != NULL);
 
-
     content_length = packet_size - header_size();
 
     delete[] content;
     content = new char[content_length + 1];
 
     strncpy(content, data, content_length); //CHANGE
-    packet_size = sizeof(char) + sizeof(uint16_t) + content_length;
+    packet_size = content_length + header_size();
 
     if (this->sequence_num != *seq_num) {
         //Packet was not expected at this time
-        printf("Packet mis-sequenced - ActSeq#:%.3i RecdSeq#:%.3i \r\n", this->sequence_num, *seq_num);
+        printf("Packet mis-sequenced - ActSeq#:%.3i RecdSeq#:%.3i \r\n",
+               this->sequence_num, *seq_num);
         return SR::OutOfSequence;
     } else {
         this->sequence_num = *seq_num;
@@ -103,10 +103,9 @@ SR Packet::DecodePacket() {
 
 /**
  * Calculates the checksum of the packet buffer and returns it
- * (the actual checksum value in the buffer MUST be zero)
+ * (the actual checksum value in the packet buffer MUST be zero)
  *
  * @return checksum value
- *
  */
 uint16_t Packet::Checksum() {
     register uint16_t sum;
@@ -149,7 +148,7 @@ size_t Packet::max_content() {
 
 
 /**
- * Create packet buffer from packet contents.
+ * Creates a packet buffer from packet instance information.
  *
  * MUST be called before sending.
  *
@@ -161,6 +160,8 @@ void Packet::Finalize() {
                                        + sizeof(char));
     char *data = (char *) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
                            + sizeof(char));
+
+    //Set pointers to correct buffer location to actual packet info
     strncpy(packet_type, type_string.c_str(), 1);
     *checksum = 0;
     *seq_num = sequence_num;
@@ -184,27 +185,40 @@ void Packet::Finalize() {
 SR Packet::Send() {
     uint8_t before = sequence_num;
     Finalize();
+    SR result = SR::FatalError;
 
     if (before != sequence_num) {
-        cout << "Did not equal." << endl;
-        exit(-234);
+        cerr << "Sequence Number memory corruption." << endl;
+        return result;
     }
 
-    SR r = SR::FatalError;
     if (Sockets::instance()->GetSide() == SERVER) {
-        r = Gremlin::instance()->tamper(packet_buffer, &packet_size);
-        if (r == SR::Delayed) {
+
+        result = Gremlin::instance()->tamper(packet_buffer, &packet_size);
+        if (result == SR::Delayed) {
+
+            //The packet will be sent after a delay
             printf(color_text("35", "Packet with S#%i DELAYED\n").c_str(), this->sequence_num);
-            r = SendDelayed();
-        } else if (r == SR::Success) {
-            r = _send_to_socket();
-        } else if (r == SR::Dropped) {
+            result = SendDelayed();
+
+        } else if (result == SR::Success) {
+
+            //Success, actually send to socket
+            result = _send_to_socket();
+
+        } else if (result == SR::Dropped) {
+
+            //Don't send this packet, it was dropped.
             printf(color_text("34", "Packet with S#%i DROPPED\n").c_str(), this->sequence_num);
+
         }
     } else if (Sockets::instance()->GetSide() == CLIENT) {
-        r = _send_to_socket();
+
+        //The client can not drop packets
+        result = _send_to_socket();
+
     }
-    return r;
+    return result;
 }
 
 /**
@@ -284,6 +298,19 @@ uint8_t Packet::Sequence() {
     return sequence_num;
 }
 
+/**
+ * Takes a packet buffer and buffer length and sets this packet to the kind
+ * specified in the buffer. All information in the called packet is overwritten.
+ *
+ * WARNING: You must know the type of packet to compare to and still call
+ * DecodePacket() to determine if the packet is corrupted or and retrieve its
+ * information!
+ *
+ * @param packet_buffer pointer to a buffer representing a packet
+ * @param buf_lenght length of the specified buffer.
+ *
+ * @return ALWAYS returns Success
+ */
 SR Packet::DecodePacket(char *packet_buffer, size_t buf_length) {
     memcpy(this->packet_buffer, packet_buffer, buf_length);
     this->packet_size = buf_length;

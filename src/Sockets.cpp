@@ -333,10 +333,14 @@ void Sockets::UseTimeout(long int sec, long int micro_sec) {
 }
 
 /**
- * Blocks until a packet is received or Timeout reached.
+ * Blocks execution until a packet is received or Timeout reached.
  *
+ * @param packet_buf empty packet buffer to write into
+ * @param buff_len Max expected length of received packet (MUST equal or be
+ *      less than packet_buf's size AND a valid number)
+ * @param type the type of received packet is returned via this
  *
- * @return result of awaiting.
+ * @return result of the Receive() method or NotInitialized.
  */
 SR Sockets::AwaitPacket(char *packet_buf, size_t &buff_len, string &type) {
     if (!this->initialized) {
@@ -352,15 +356,19 @@ SR Sockets::AwaitPacket(char *packet_buf, size_t &buff_len, string &type) {
 
     type.clear();
     type = string(packet.type_string);
-    //dprint("Await Packet Type:", type);
     return SR::Success;
 }
 
 
 /**
- * Blocks forever until a packet is received.
+ * Blocks execution FOREVER until a packet is received.
  *
- * @return result of awaiting.
+ * @param packet_buf empty packet buffer to write into
+ * @param buff_len Max expected length of received packet (MUST equal or be
+ *      less than packet_buf's size AND a valid number)
+ * @param type the type of received packet is returned via this
+ *
+ * @return result of the Receive() method or NotInitialized.
  */
 SR Sockets::AwaitPacketForever(char *packet_buf, size_t &buff_len, string &type) {
     if (!this->initialized) {

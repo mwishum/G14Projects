@@ -116,7 +116,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
         }
-        cout << "Server successfully sent" << color_text("40", to_string((long long int) sent_packet_num)) << endl;
+        dprint("Server successfully sent #", color_text("40", to_string((long long int) packet_list.size())))
     } //END PACKET LOOP
     Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
     return SR::Success;

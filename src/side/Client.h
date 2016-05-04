@@ -80,7 +80,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         } else {
             dprintm(color_text("33", "[Client]Unexpected Result"), result)
         }
-        dprint("Client successfully received", color_text("40", to_string((long long int) packet_list.size())))
+        dprint("Client successfully received #", color_text("40", to_string((long long int) packet_list.size())))
     }
 
     mgr.WriteFile(out_file_name);
