@@ -47,12 +47,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             window_end = (window_start + WINDOW_SIZE) % SEQUENCE_MAX;
             if (window_end < window_start) {
                 if (i < window_start && i >= window_end) {
-                    cout << color_text("41", "[Server]i < window_start && i >= window_end") << endl;
                     break;
                 }
             }
             else if (i >= window_end || i < window_start) {
-                cout << color_text("41", "[Server]i >= window_end || i < window_start") << endl;
                 break;
             }
             if (sent_packet_num >= packet_list.size()) {
@@ -69,39 +67,33 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
         }
 
-        //TODO: Timer here
-
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
         dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
 
         if (result == SR::Timeout) {
-            cout << color_text("44", " -> Timeout") << endl;
-            if (sequence_num < ((last_ack_num + 1) % SEQUENCE_MAX)) {
-                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + ((last_ack_num + 1) % 32);
+            dprint("", color_text("44", " -> Timeout"))
+
+            if (sequence_num < last_ack_num % SEQUENCE_MAX) {
                 window_roll_overs--;
-                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
-            } else {
-                sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
-                sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
             }
-            usleep(50);
-            continue;
+
+            sent_packet_num = SEQUENCE_MAX * window_roll_overs + (last_ack_num % 32);
+            sequence_num = (uint8_t) (last_ack_num % SEQUENCE_MAX);
+            usleep(90);
         } else if (packet_type == NO_ACK) { // Resend packets starting from sequence number
-            cout << color_text("45", " -> NO ACK") << endl;
+            dprint("", color_text("45", " -> NO ACK"))
             NakPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
+
             if (sequence_num < received.Sequence()) {
-                sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + received.Sequence();
                 window_roll_overs--;
-                sequence_num = received.Sequence();
-            } else {
-                sent_packet_num = SEQUENCE_MAX * window_roll_overs + received.Sequence();
-                sequence_num = received.Sequence();
             }
-            continue;
+
+            sent_packet_num = SEQUENCE_MAX * window_roll_overs + received.Sequence();
+            sequence_num = received.Sequence();
         } else if (packet_type == ACK) {
-            cout << color_text("46", " -> ACK") << endl;
+            dprint("", color_text("46", " -> ACK"))
             AckPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
@@ -114,18 +106,17 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 last_ack_num = received.Sequence();
                 window_start = received.Sequence();
             }
-            continue;
         } else if (packet_type == GET_SUCCESS) {
             ///////////////////////////////////////////////
-            string s = "Success received, transfer done. (" + to_string(packet_list.size() - 1) + ")";
+            string s = "Success received, transfer done. (" + to_string((long long int) packet_list.size() - 1) + ")";
             cout << endl << endl << endl << endl << endl << "=====================" << endl;
             cout << color_text("42", s) << endl;
             cout << "=====================" << endl << endl << endl << endl;
             break;
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
-            continue;
         }
+        cout << "Server successfully sent" << color_text("40", to_string((long long int) sent_packet_num)) << endl;
     } //END PACKET LOOP
     Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
     return SR::Success;
@@ -239,7 +230,7 @@ inline bool main_server(string this_address, vector<string> &command) {
 
                 if (result == SR::Success) {
                     cout << "Finished file transmission successfully." << endl;
-                    cout << "TOTAL PACKETS SENT " <<  Sockets::instance()->TOTAL_SENT << endl;
+                    cout << "TOTAL PACKETS SENT " << Sockets::instance()->TOTAL_SENT << endl;
                 }
 
             } //**RESULT == SUCCESS

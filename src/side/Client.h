@@ -80,12 +80,13 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
         } else {
             dprintm(color_text("33", "[Client]Unexpected Result"), result)
         }
+        dprint("Client successfully received", color_text("40", to_string((long long int) packet_list.size())))
     }
 
     mgr.WriteFile(out_file_name);
     mgr.JoinFile(packet_list);
     cout << "File transferred to `" << out_file_name << "` successfully." << endl;
-    cout << "TOTAL PACKETS SENT " <<  Sockets::instance()->TOTAL_SENT << endl;
+    cout << "TOTAL PACKETS SENT " << Sockets::instance()->TOTAL_SENT << endl;
     Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
     return SR::Success;
 }
