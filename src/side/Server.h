@@ -72,10 +72,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
         //TODO: Timer here
 
         result = Sockets::instance()->AwaitPacket(buffer, buffer_len, packet_type);
-        //dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
+        dprint("  [SERVER]Await", StatusMessage[(int) result] + ", " + packet_type)
 
         if (result == SR::Timeout) {
-            cout << color_text("44", "[Server]Timeout") << endl;
+            cout << color_text("44", " -> Timeout") << endl;
             if (sequence_num < ((last_ack_num + 1) % SEQUENCE_MAX)) {
                 sent_packet_num = SEQUENCE_MAX * (window_roll_overs - 1) + ((last_ack_num + 1) % 32);
                 window_roll_overs--;
@@ -84,10 +84,10 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
                 sent_packet_num = SEQUENCE_MAX * window_roll_overs + ((last_ack_num + 1) % 32);
                 sequence_num = (uint8_t) ((last_ack_num + 1) % SEQUENCE_MAX);
             }
-
+            usleep(50);
             continue;
         } else if (packet_type == NO_ACK) { // Resend packets starting from sequence number
-            cout << color_text("45", "[Server]NO ACK") << endl;
+            cout << color_text("45", " -> NO ACK") << endl;
             NakPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
@@ -101,7 +101,7 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
             continue;
         } else if (packet_type == ACK) {
-            cout << color_text("46", "[Server]ACK") << endl;
+            cout << color_text("46", " -> ACK") << endl;
             AckPacket received(0);
             received.DecodePacket(buffer, buffer_len);
             received.DecodePacket();
@@ -112,13 +112,15 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
             }
             if (last_ack_num != received.Sequence() + 1) {
                 last_ack_num = received.Sequence();
+                window_start = received.Sequence();
             }
-            window_start = received.Sequence();
             continue;
         } else if (packet_type == GET_SUCCESS) {
             ///////////////////////////////////////////////
-            cout << "Sent " << packet_list.size() - 1 << " packets. Success received, transfer done." << endl;
-            sleep(10);
+            string s = "Success received, transfer done. (" + to_string(packet_list.size() - 1) + ")";
+            cout << endl << endl << endl << endl << endl << "=====================" << endl;
+            cout << color_text("42", s) << endl;
+            cout << "=====================" << endl << endl << endl << endl;
             break;
         } else {
             cerr << "UNEXPECTED TYPE " << packet_type << " " << StatusMessage[(int) result] << endl;
@@ -139,7 +141,6 @@ inline SR GoBackNProtocol_Server(FileManager &mgr, string &filename) {
 inline bool main_server(string this_address, vector<string> &command) {
     string damage_prob, loss_prob, delay_prob, delay_time;
     SR result;
-    int loops = 0;
 
     string packet_type;
     char buffer[PACKET_SIZE];
@@ -238,6 +239,7 @@ inline bool main_server(string this_address, vector<string> &command) {
 
                 if (result == SR::Success) {
                     cout << "Finished file transmission successfully." << endl;
+                    cout << "TOTAL PACKETS SENT " <<  Sockets::instance()->TOTAL_SENT << endl;
                 }
 
             } //**RESULT == SUCCESS

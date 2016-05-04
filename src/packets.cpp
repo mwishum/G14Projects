@@ -13,7 +13,7 @@
 
 Packet::Packet() : content_length(1), packet_size(0), checksum(0), sequence_num(
         0) {
-    type_string = NULL;
+    type_string = "X";
     content = new char[1];
     memset(packet_buffer, NOTHING, PACKET_SIZE);
 }
@@ -26,7 +26,7 @@ Packet::Packet() : content_length(1), packet_size(0), checksum(0), sequence_num(
  */
 Packet::Packet(char *data, size_t data_len) : content_length(data_len), packet_size(0), checksum(0), sequence_num(
         0) {
-    type_string = NULL;
+    type_string = "X";
     content = new char[data_len + 1];
     memcpy(content, data, data_len);
     memset(packet_buffer, NOTHING, PACKET_SIZE);
@@ -40,12 +40,7 @@ Packet::Packet(const Packet &packet) : content_length(packet.content_length),
                                        packet_size(packet.packet_size),
                                        checksum(packet.checksum),
                                        sequence_num(packet.sequence_num) {
-    if (packet.type_string != NULL) {
-        type_string = new char;
-        memcpy(type_string, packet.type_string, 1);
-    } else { 
-        exit(-2012);
-    }
+    type_string = string(packet.type_string);
     content = new char[packet.content_length + 1];
     memcpy(this->content, packet.content, content_length);
     memcpy(this->packet_buffer, packet.packet_buffer, PACKET_SIZE);
@@ -53,7 +48,6 @@ Packet::Packet(const Packet &packet) : content_length(packet.content_length),
 
 Packet::~Packet() {
     delete[] content;
-    type_string = NULL;
 }
 
 /**
@@ -69,11 +63,11 @@ SR Packet::DecodePacket() {
     char *data = (char *) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
                            + sizeof(char));
 
-    bool type_matches = *buf_pack_type == *type_string;
+    bool type_matches = *buf_pack_type == *type_string.c_str();
     this->checksum = *buf_checksum;
     *buf_checksum = 0;
     uint16_t actual_sum = Checksum();
-    dprintcmp(" TYPE  ", string(1, buf_pack_type[0]), string(1, this->type_string[0]))
+    dprintcmp(" TYPE  ", string(1, buf_pack_type[0]), this->type_string)
     dprintcmph(" CHKSUM", this->checksum, actual_sum);
     dprintcmp(" SEQNUM", (uint) *seq_num, (uint) this->sequence_num);
     if (this->checksum != actual_sum) {
@@ -167,15 +161,15 @@ void Packet::Finalize() {
                                        + sizeof(char));
     char *data = (char *) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
                            + sizeof(char));
-    strcpy(packet_type, type_string);
+    strncpy(packet_type, type_string.c_str(), 1);
     *checksum = 0;
     *seq_num = sequence_num;
 
     assert(content_length <= max_content());
     assert(content != NULL);
 
-    memset(data, NOTHING, sizeof(uint8_t) + sizeof(uint16_t) + sizeof(char));
-    strcpy(data, content);
+    memset(data, NOTHING, content_length);
+    strncpy(data, content, content_length);
     packet_size = header_size() + content_length;
     this->checksum = Checksum();
     *checksum = this->checksum;
@@ -188,7 +182,13 @@ void Packet::Finalize() {
  * @returns status of sending packet
  */
 SR Packet::Send() {
+    uint8_t before = sequence_num;
     Finalize();
+
+    if (before != sequence_num) {
+        cout << "Did not equal." << endl;
+        exit(-234);
+    }
 
     SR r = SR::FatalError;
     if (Sockets::instance()->GetSide() == SERVER) {
@@ -229,7 +229,7 @@ SR Packet::SendDelayed() {
  * @return Status of sending packet
  */
 SR Packet::send_delayed(chrono::milliseconds time, Packet p) {
-    assert(p.type_string != NULL);
+    assert(p.type_string != "X");
     this_thread::sleep_for(time);
     //cout << "This is " << static_cast<void *>(this) << ", passed packet is " << static_cast<void *>(&p) << endl;
     p.Finalize();
@@ -302,7 +302,7 @@ void Packet::ConvertFromBuffer() {
     char *data = (char *) (packet_buffer + sizeof(uint8_t) + sizeof(uint16_t)
                            + sizeof(char));
 
-    type_string = buf_pack_type;
+    type_string = string(buf_pack_type, 1);
     content_length = packet_size - header_size();
     if (content != NULL) {
         delete[] content;
@@ -321,7 +321,7 @@ void Packet::ConvertFromBuffer() {
  */
 DataPacket::DataPacket(char *data, size_t data_len) :
         Packet(data, data_len) {
-    type_string = const_cast<char *>(DATA);
+    type_string = DATA;
 }
 
 /**
@@ -330,7 +330,7 @@ DataPacket::DataPacket(char *data, size_t data_len) :
  */
 DataPacket::DataPacket() :
         Packet() {
-    type_string = const_cast<char *>(DATA);
+    type_string = DATA;
 }
 
 /**
@@ -340,7 +340,7 @@ DataPacket::DataPacket() :
  */
 AckPacket::AckPacket(uint8_t seq) :
         DataPacket() {
-    type_string = const_cast<char *>(ACK);
+    type_string = ACK;
     Sequence(seq);
 }
 
@@ -351,7 +351,7 @@ AckPacket::AckPacket(uint8_t seq) :
  */
 NakPacket::NakPacket(uint8_t seq) :
         DataPacket() {
-    type_string = const_cast<char *>(NO_ACK);
+    type_string = NO_ACK;
     Sequence(seq);
 }
 
@@ -366,13 +366,13 @@ RequestPacket::RequestPacket(ReqType type, char *data, size_t data_len) :
         DataPacket(data, data_len) {
     switch (type) {
         case ReqType::Fail:
-            type_string = const_cast<char *>(GET_FAIL);
+            type_string = GET_FAIL;
             break;
         case ReqType::Info:
-            type_string = const_cast<char *>(GET_INFO);
+            type_string = GET_INFO;
             break;
         case ReqType::Success:
-            type_string = const_cast<char *>(GET_SUCCESS);
+            type_string = GET_SUCCESS;
             break;
         default:
             break;
@@ -389,9 +389,9 @@ RequestPacket::RequestPacket(ReqType type, char *data, size_t data_len) :
 RTTPacket::RTTPacket(ReqType type, char *data, size_t data_len) :
         DataPacket(data, data_len) {
     if (type == ReqType::RTTClient) {
-        type_string = const_cast<char *>(RTT_TEST_CLIENT);
+        type_string = RTT_TEST_CLIENT;
     } else {
-        type_string = const_cast<char *>(RTT_TEST_SERVER);
+        type_string = RTT_TEST_SERVER;
     }
 }
 
@@ -404,9 +404,9 @@ RTTPacket::RTTPacket(ReqType type, char *data, size_t data_len) :
 RTTPacket::RTTPacket(ReqType type) :
         DataPacket(NO_CONTENT, 1) {
     if (type == ReqType::RTTClient) {
-        type_string = const_cast<char *>(RTT_TEST_CLIENT);
+        type_string = RTT_TEST_CLIENT;
     } else {
-        type_string = const_cast<char *>(RTT_TEST_SERVER);
+        type_string = RTT_TEST_SERVER;
     }
 }
 
@@ -417,7 +417,7 @@ RTTPacket::RTTPacket(ReqType type) :
  * @param data_len length of content (NOT strlen unless null-term)
  */
 GreetingPacket::GreetingPacket(char *data, size_t data_len) : DataPacket(data, data_len) {
-    type_string = const_cast<char *>(GREETING);
+    type_string = GREETING;
 }
 
 

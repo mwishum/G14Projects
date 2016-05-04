@@ -78,7 +78,7 @@ protected:
     size_t packet_size;
     uint16_t checksum;
     uint8_t sequence_num;
-    char *type_string;
+    string type_string;
 };
 
 class DataPacket : public Packet {

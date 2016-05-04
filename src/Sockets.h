@@ -53,6 +53,7 @@ public:
         return manager;
     }
     struct timeval rtt_determined;
+    static int TOTAL_SENT;
 };
 
 #endif /* SOCKETS_H_ */

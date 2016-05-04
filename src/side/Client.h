@@ -34,7 +34,6 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
     uint8_t exp_sequence_num = 0;
     uint8_t last_seq_num = 32;
     vector<DataPacket> packet_list;
-    packet_list.reserve(1000);
 
     while (true) {
         buffer_len = PACKET_SIZE;
@@ -58,7 +57,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
             break;
         }
 
-        dprintm("  [CLIENT]Decode Result", result);
+        dprint("  [CLIENT]Await", StatusMessage[(int) result] + ", " + packet_type)
 
         if (result == SR::Success) {
             packet_list.push_back(received);
@@ -86,6 +85,7 @@ inline SR GoBackNProtocol_Client(FileManager &mgr, string &file_name, string &ou
     mgr.WriteFile(out_file_name);
     mgr.JoinFile(packet_list);
     cout << "File transferred to `" << out_file_name << "` successfully." << endl;
+    cout << "TOTAL PACKETS SENT " <<  Sockets::instance()->TOTAL_SENT << endl;
     Sockets::instance()->UseTimeout(TIMEOUT_SEC, TIMEOUT_MICRO_SEC);
     return SR::Success;
 }

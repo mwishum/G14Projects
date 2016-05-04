@@ -9,11 +9,13 @@
 #include "Sockets.h"
 
 Sockets *Sockets::manager = NULL;
+int Sockets::TOTAL_SENT = 0;
 
 Sockets::Sockets() : initialized(false), socket_id(-1) {
     deft_timeout.tv_sec = TIMEOUT_SEC;
     deft_timeout.tv_usec = TIMEOUT_MICRO_SEC;
     memset(&client_sock_addr, 0, sizeof(client_sock_addr));
+    TOTAL_SENT = 0;
 }
 
 
@@ -196,6 +198,7 @@ SR Sockets::Send(char *buffer, size_t &bufflen) {
     if (!initialized) {
         return SR::NotInitialized;
     }
+    TOTAL_SENT++;
     socklen_t length = sizeof(client_sock_addr);
     dprint("Sent packet with size", bufflen)
     ssize_t res = 0;
@@ -348,7 +351,7 @@ SR Sockets::AwaitPacket(char *packet_buf, size_t &buff_len, string &type) {
     UnknownPacket packet(packet_buf, buff_len);
 
     type.clear();
-    type.insert(0, packet.type_string, 1);
+    type = string(packet.type_string);
     //dprint("Await Packet Type:", type);
     return SR::Success;
 }
@@ -372,7 +375,7 @@ SR Sockets::AwaitPacketForever(char *packet_buf, size_t &buff_len, string &type)
     UnknownPacket packet(packet_buf, buff_len);
 
     type.clear();
-    type.insert(0, packet.type_string, 1);
+    type = string(packet.type_string);
     return SR::Success;
 }
 
